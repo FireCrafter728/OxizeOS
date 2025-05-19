@@ -110,4 +110,6 @@ void ELF_LoadElf(ATA_PIO_Device* device, ELF_File* elf, uint32_t PhysAddr)
     }
 
     FAT_Close(fd);
+
+    printf("[ELF Loader] [INFO]: ELF Executable loaded successfully\r\n");
 }
