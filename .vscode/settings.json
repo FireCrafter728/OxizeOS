@@ -67,6 +67,7 @@
         "typeindex": "c",
         "ata_pio.h": "c",
         "mbr.h": "c",
-        "io_context": "c"
+        "io_context": "c",
+        "elf.h": "c"
     }
 }

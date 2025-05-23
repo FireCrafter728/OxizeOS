@@ -67,6 +67,7 @@ typedef struct {
     ELF_ProgramHeader programHeaders[MAX_PROGRAM_HEADERS];
     uint32_t Size;
     uint32_t LoadSize;
+    uint32_t LoadAddr;
     const char* fileName;
 } __attribute__((packed)) ELF_File;
 

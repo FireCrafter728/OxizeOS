@@ -93,6 +93,8 @@ void ELF_LoadElf(ATA_PIO_Device* device, ELF_File* elf, uint32_t PhysAddr)
 
     FAT_File* fd = FAT_Open(device, elf->fileName);
 
+    elf->LoadAddr = PhysAddr;
+
     for(int i = 0; i < elf->header.ProgramHeaderEntries; i++) {
         if(elf->programHeaders[i].Type != PT_LOAD) continue;
         uint8_t buffer[SECTOR_SIZE];
