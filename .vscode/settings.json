@@ -68,6 +68,9 @@
         "ata_pio.h": "c",
         "mbr.h": "c",
         "io_context": "c",
-        "elf.h": "c"
+        "elf.h": "c",
+        "stacktrace": "c",
+        "buffer": "c",
+        "sata_ahci.h": "c"
     }
 }

@@ -14,6 +14,13 @@ outw:
     out dx, ax
     ret
 
+global outd
+outd:
+    mov dx, [esp + 4]
+    mov eax, [esp + 8]
+    out dx, eax
+    ret
+
 global inb
 inb:
     mov dx, [esp + 4]
@@ -26,6 +33,13 @@ inw:
     mov dx, [esp + 4]
     xor eax, eax
     in ax, dx
+    ret
+
+global ind
+ind:
+    mov dx, [esp + 4]
+    xor eax, eax
+    in eax, dx
     ret
 
 ;void __attribute__((cdecl)) Halt();

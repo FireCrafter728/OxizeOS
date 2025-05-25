@@ -43,6 +43,7 @@ sudo mkdir -p ${MOUNT_PATH}/BOOT/BIOS
 sudo cp ${output}/kernel.bin ${MOUNT_PATH}/BOOT/BIOS
 sudo mkdir -p ${MOUNT_PATH}/BOOT/BIOS/tests
 sudo cp test.txt ${MOUNT_PATH}/BOOT/BIOS/tests
+sudo cp LFNTestFile.txt ${MOUNT_PATH}/BOOT/BIOS/tests
 sudo mkdir -p ${MOUNT_PATH}/BOOT/KERNEL
 sudo cp ${output}/x86Kern.exe ${MOUNT_PATH}/BOOT/KERNEL
 

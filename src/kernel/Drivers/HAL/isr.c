@@ -55,7 +55,7 @@ void __attribute__((cdecl)) ISR_Handler(Registers* regs)
     } else {
         if (regs->Interrupt < 32) {
             bool ErrCode = false;
-            for (int i = 0; i < sizeof(INT_ERRCODES) / sizeof(INT_ERRCODES[0]); i++) {
+            for (size_t i = 0; i < sizeof(INT_ERRCODES) / sizeof(INT_ERRCODES[0]); i++) {
                 if (regs->Interrupt == INT_ERRCODES[i]) {
                     ErrCode = true;
                     break;

@@ -1,6 +1,6 @@
 build: dir $(output)/x86Kern.exe
 
-TARGET_CFLAGS += -c -Wall -Wextra -nostdlib -ffreestanding -fPIE -I $(src)/libs/ -I .
+TARGET_CFLAGS += -c -Wall -Wextra -nostdlib -ffreestanding -fPIE -I $(src)/libs/ -I . -I Standart/
 TARGET_LINKFLAGS += -nostdlib -pie
 TARGET_ASMFLAGS += -f elf32
 TARGET_LIBS += -lgcc

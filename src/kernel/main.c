@@ -3,13 +3,13 @@
 #include <memory.h>
 #include <hal/hal.h>
 #include <io.h>
-#include <irq.h>
 #include <Boot/bootparams.h>
-#include <DISK/ATA_PIO.h>
+#include <DISK/DISK.h>
 #include <stddef.h>
 #include <FAT/fat.h>
 #include <Memory/mmd.h>
 #include <ELFLoader/elf.h>
+#include <DISK/SATA_AHCI.h>
 
 extern uint8_t __bss_start;
 extern uint8_t __end;
@@ -24,15 +24,13 @@ void __attribute__((section(".entry"))) start(SystemInfo* System)
 
     HAL_Initialize();
 
-    ATA_PIO_Device device;
-    if(!ATA_PIO_Initialize(&device)) {
-        printf("[KERNEL] [ERROR]: Failed to initialize ATA PIO Device\r\n");
+    DISK disk;
+    if(!DISK_Initialize(&disk)) {
+        printf("[KERNEL] [INFO]: Failed to initialize DISK\r\n");
         HaltSystem();
     }
 
-    printf("[KERNEL] [INFO]: ATA PIO Device found: Disk model: %s, Sector count: %lu\r\n", device.driveInfo.model, device.driveInfo.sectorCount);
-
-    if(!FAT_Initialize(&device)) {
+    if(!FAT_Initialize(&disk)) {
         printf("[KERNEL] [INFO]: Failed to initialize FAT32 driver\r\n");
         HaltSystem();
     }
@@ -42,14 +40,14 @@ void __attribute__((section(".entry"))) start(SystemInfo* System)
     MMD_Initialize(&driver, System->memoryInfo);
 
     ELF_File file;
-    if(!ELF_GetFileData(&file, &device, "BOOT/KERNEL/x86Kern.exe")) {
+    if(!ELF_GetFileData(&file, &disk, "BOOT/KERNEL/x86Kern.exe")) {
         printf("[KERNEL] [ERROR]: Failed to read x86Kernel.exe header\r\n");
         HaltSystem();
     }
 
     uint32_t loadAddr = MMD_FindMemoryLocation(&driver, file.LoadSize);
 
-    ELF_LoadElf(&device, &file, loadAddr);
+    ELF_LoadElf(&disk, &file, loadAddr);
 
     x86Kernel kernelx86 = (x86Kernel)(loadAddr + file.header.entry);
     kernelx86(System);

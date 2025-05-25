@@ -6,8 +6,10 @@
 
 void ASMCALL outb(uint16_t port, uint8_t value);
 void ASMCALL outw(uint16_t port, uint16_t value);
+void ASMCALL outd(uint16_t port, uint32_t value);
 uint8_t ASMCALL inb(uint16_t port);
 uint16_t ASMCALL inw(uint16_t port);
+uint32_t ASMCALL ind(uint16_t port);
 void HaltSystem();
 void Crash();
 void iowait();

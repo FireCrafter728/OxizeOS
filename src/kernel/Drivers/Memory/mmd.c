@@ -3,9 +3,8 @@
 #include <stdio.h>
 #include <memory.h>
 #include <stddef.h>
+#include <Memory/memdefs.h>
 
-#define BIT32_MEMORY_START 1048576
-#define GLOBAL_MEMORY_START 0x200000
 #define SECTOR_SIZE 512
 
 void MMD_Initialize(MMD_MemoryDriver *driver, MemoryInfo memoryInfo)
@@ -160,7 +159,7 @@ int MMD_AddElfFile(MMD_MemoryDriver* driver, ELF_File* elf)
 {
     int index = -1;
     for (int i = 0; i < MAX_EXECUTABLE_COUNT && index < 0; i++)
-        if (driver->ELFFiles[i] = NULL)
+        if (driver->ELFFiles[i] == NULL)
             index = i;
     if (index < 0)
         return index;

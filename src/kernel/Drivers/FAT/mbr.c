@@ -4,7 +4,7 @@
 
 #define PARTITION_START 0x800
 
-bool MBR_ReadSectors(ATA_PIO_Device* device, uint32_t lba, uint8_t sectors, void* lowerDataOut)
+bool MBR_ReadSectors(DISK* disk, uint32_t lba, uint8_t sectors, void* dataOut)
 {
-    return ATA_PIO_ReadSectors(device, lba + PARTITION_START, sectors, lowerDataOut);
+    return DISK_ReadSectors(disk, lba + PARTITION_START, sectors, dataOut);
 }

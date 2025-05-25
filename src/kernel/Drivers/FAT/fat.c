@@ -5,7 +5,7 @@
 #include <ctype.h>
 #include <stddef.h>
 #include <minmax.h>
-#include <FAT/memdefs.h>
+#include <Memory/memdefs.h>
 
 #define MAX_PATH_SIZE           256
 #define MAX_FILE_HANDLES        10
@@ -73,14 +73,14 @@ static FAT_Data* g_Data;
 static uint32_t g_DataSectionLba;
 static uint32_t TotalSectors;
 
-bool FAT_ReadBootSector(ATA_PIO_Device* device)
+bool FAT_ReadBootSector(DISK* disk)
 {
-    return MBR_ReadSectors(device, 0, 1, g_Data->BS.BootSectorBytes);
+    return MBR_ReadSectors(disk, 0, 1, g_Data->BS.BootSectorBytes);
 }
 
-bool FAT_ReadFat(ATA_PIO_Device* device, size_t lbaIndex)
+bool FAT_ReadFat(DISK* disk, size_t lbaIndex)
 {
-    return MBR_ReadSectors(device, g_Data->BS.BootSector.ReservedSectors + lbaIndex, FAT_CACHE_SIZE, g_Data->FatCache);
+    return MBR_ReadSectors(disk, g_Data->BS.BootSector.ReservedSectors + lbaIndex, FAT_CACHE_SIZE, g_Data->FatCache);
 }
 
 uint32_t FAT_ClusterToLba(uint32_t cluster)
@@ -88,11 +88,11 @@ uint32_t FAT_ClusterToLba(uint32_t cluster)
     return g_DataSectionLba + (cluster - 2) * g_Data->BS.BootSector.SectorsPerCluster;
 }
 
-bool FAT_Initialize(ATA_PIO_Device* device)
+bool FAT_Initialize(DISK* disk)
 {
     g_Data = (FAT_Data*)MEMORY_FAT_ADDR;
 
-    if (!FAT_ReadBootSector(device))
+    if (!FAT_ReadBootSector(disk))
     {
         printf("FAT: read boot sector failed\r\n");
         return false;
@@ -115,7 +115,7 @@ bool FAT_Initialize(ATA_PIO_Device* device)
     g_Data->RootDirectory.CurrentCluster = rootDirLba;
     g_Data->RootDirectory.CurrentSectorInCluster = 0;
 
-    if (!MBR_ReadSectors(device, rootDirLba, 1, g_Data->RootDirectory.Buffer))
+    if (!MBR_ReadSectors(disk, rootDirLba, 1, g_Data->RootDirectory.Buffer))
     {
         printf("FAT: read root directory failed\r\n");
         return false;
@@ -130,7 +130,7 @@ bool FAT_Initialize(ATA_PIO_Device* device)
     return true;
 }
 
-FAT_File* FAT_OpenEntry(ATA_PIO_Device* device, FAT_DirectoryEntry* entry)
+FAT_File* FAT_OpenEntry(DISK* disk, FAT_DirectoryEntry* entry)
 {
     int handle = -1;
     for (int i = 0; i < MAX_FILE_HANDLES && handle < 0; i++)
@@ -154,7 +154,7 @@ FAT_File* FAT_OpenEntry(ATA_PIO_Device* device, FAT_DirectoryEntry* entry)
     fd->CurrentCluster = fd->FirstCluster;
     fd->CurrentSectorInCluster = 0;
 
-    if (!MBR_ReadSectors(device, FAT_ClusterToLba(fd->CurrentCluster), 1, fd->Buffer))
+    if (!MBR_ReadSectors(disk, FAT_ClusterToLba(fd->CurrentCluster), 1, fd->Buffer))
     {
         printf("FAT: open entry failed - read error cluster=%u lba=%u\n", fd->CurrentCluster, FAT_ClusterToLba(fd->CurrentCluster));
         for (int i = 0; i < 11; i++)
@@ -167,13 +167,13 @@ FAT_File* FAT_OpenEntry(ATA_PIO_Device* device, FAT_DirectoryEntry* entry)
     return &fd->Public;
 }
 
-uint32_t FAT_NextCluster(ATA_PIO_Device* device, uint32_t currentCluster)
+uint32_t FAT_NextCluster(DISK* disk, uint32_t currentCluster)
 {    
     uint32_t fatIndex = currentCluster * 4;
 
     uint32_t fatIndexSector = fatIndex / SECTOR_SIZE;
     if(fatIndexSector < g_Data->FatCachePos || fatIndexSector >= g_Data->FatCachePos + FAT_CACHE_SIZE) {
-        FAT_ReadFat(device, fatIndexSector);
+        FAT_ReadFat(disk, fatIndexSector);
         g_Data->FatCachePos = fatIndexSector;
     }
 
@@ -182,7 +182,7 @@ uint32_t FAT_NextCluster(ATA_PIO_Device* device, uint32_t currentCluster)
     return *(uint32_t*)(g_Data->FatCache + fatIndex);
 }
 
-uint32_t FAT_Read(ATA_PIO_Device* device, FAT_File* file, uint32_t byteCount, void* dataOut)
+uint32_t FAT_Read(DISK* disk, FAT_File* file, uint32_t byteCount, void* dataOut)
 {
     FAT_FileData* fd = (file->Handle == ROOT_DIRECTORY_HANDLE) 
         ? &g_Data->RootDirectory 
@@ -209,7 +209,7 @@ uint32_t FAT_Read(ATA_PIO_Device* device, FAT_File* file, uint32_t byteCount, vo
             {
                 ++fd->CurrentCluster;
 
-                if (!MBR_ReadSectors(device, fd->CurrentCluster, 1, fd->Buffer))
+                if (!MBR_ReadSectors(disk, fd->CurrentCluster, 1, fd->Buffer))
                 {
                     printf("FAT: read error!\r\n");
                     break;
@@ -220,7 +220,7 @@ uint32_t FAT_Read(ATA_PIO_Device* device, FAT_File* file, uint32_t byteCount, vo
                 if (++fd->CurrentSectorInCluster >= g_Data->BS.BootSector.SectorsPerCluster)
                 {
                     fd->CurrentSectorInCluster = 0;
-                    fd->CurrentCluster = FAT_NextCluster(device, fd->CurrentCluster);
+                    fd->CurrentCluster = FAT_NextCluster(disk, fd->CurrentCluster);
                 }
 
                 if (fd->CurrentCluster >= 0xFFFFFFF8)
@@ -229,7 +229,7 @@ uint32_t FAT_Read(ATA_PIO_Device* device, FAT_File* file, uint32_t byteCount, vo
                     break;
                 }
 
-                if (!MBR_ReadSectors(device, FAT_ClusterToLba(fd->CurrentCluster) + fd->CurrentSectorInCluster, 1, fd->Buffer))
+                if (!MBR_ReadSectors(disk, FAT_ClusterToLba(fd->CurrentCluster) + fd->CurrentSectorInCluster, 1, fd->Buffer))
                 {
                     printf("FAT: read error!\r\n");
                     break;
@@ -241,9 +241,9 @@ uint32_t FAT_Read(ATA_PIO_Device* device, FAT_File* file, uint32_t byteCount, vo
     return u8DataOut - (uint8_t*)dataOut;
 }
 
-bool FAT_ReadEntry(ATA_PIO_Device* device, FAT_File* file, FAT_DirectoryEntry* dirEntry)
+bool FAT_ReadEntry(DISK* disk, FAT_File* file, FAT_DirectoryEntry* dirEntry)
 {
-    return FAT_Read(device, file, sizeof(FAT_DirectoryEntry), dirEntry) == sizeof(FAT_DirectoryEntry);
+    return FAT_Read(disk, file, sizeof(FAT_DirectoryEntry), dirEntry) == sizeof(FAT_DirectoryEntry);
 }
 
 void FAT_Seek(FAT_File* file, uint32_t Position)
@@ -288,14 +288,14 @@ void FAT_GetShortName(const char* fileName, char shortName[12])
     }
 }
 
-bool FAT_FindFile(ATA_PIO_Device* device, FAT_File* file, const char* name, FAT_DirectoryEntry* entryOut)
+bool FAT_FindFile(DISK* disk, FAT_File* file, const char* name, FAT_DirectoryEntry* entryOut)
 {
     char shortName[12];
     FAT_DirectoryEntry entry;
 
     FAT_GetShortName(name, shortName);
 
-    while (FAT_ReadEntry(device, file, &entry))
+    while (FAT_ReadEntry(disk, file, &entry))
     {
         if (memcmp(shortName, entry.Name, 11) == 0)
         {
@@ -307,7 +307,7 @@ bool FAT_FindFile(ATA_PIO_Device* device, FAT_File* file, const char* name, FAT_
     return false;
 }
 
-FAT_File* FAT_Open(ATA_PIO_Device* device, const char* path)
+FAT_File* FAT_Open(DISK* disk, const char* path)
 {
     char name[MAX_PATH_SIZE];
 
@@ -335,7 +335,7 @@ FAT_File* FAT_Open(ATA_PIO_Device* device, const char* path)
         }
         
         FAT_DirectoryEntry entry;
-        if (FAT_FindFile(device, current, name, &entry))
+        if (FAT_FindFile(disk, current, name, &entry))
         {
             FAT_Close(current);
 
@@ -345,7 +345,7 @@ FAT_File* FAT_Open(ATA_PIO_Device* device, const char* path)
                 return NULL;
             }
 
-            current = FAT_OpenEntry(device, &entry);
+            current = FAT_OpenEntry(disk, &entry);
         }
         else
         {

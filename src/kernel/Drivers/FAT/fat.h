@@ -39,10 +39,10 @@ typedef enum
     FAT_ATTRIBUTE_LFN               = FAT_ATTRIBUTE_READ_ONLY | FAT_ATTRIBUTE_HIDDEN | FAT_ATTRIBUTE_SYSTEM | FAT_ATTRIBUTE_VOLUME_ID
 } FAT_Attributes;
 
-bool FAT_Initialize(ATA_PIO_Device* device);
-FAT_File * FAT_Open(ATA_PIO_Device* device, const char* path);
-uint32_t FAT_Read(ATA_PIO_Device* device, FAT_File* file, uint32_t byteCount, void* dataOut);
+bool FAT_Initialize(DISK* disk);
+FAT_File * FAT_Open(DISK* disk, const char* path);
+uint32_t FAT_Read(DISK* disk, FAT_File* file, uint32_t byteCount, void* dataOut);
 void FAT_Seek(FAT_File* file, uint32_t Position);
 void FAT_ResetPos(FAT_File* file);
-bool FAT_ReadEntry(ATA_PIO_Device* device, FAT_File* file, FAT_DirectoryEntry* dirEntry);
+bool FAT_ReadEntry(DISK* disk, FAT_File* file, FAT_DirectoryEntry* dirEntry);
 void FAT_Close(FAT_File* file);

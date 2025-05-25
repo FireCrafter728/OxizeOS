@@ -23,7 +23,7 @@ void qsort_internal(void* base,
             break;
 
         // swap
-        for (int k = 0; k < size; k++)
+        for (size_t k = 0; k < size; k++)
         {
             temp = *((uint8_t*)(base + (i * size)) + k);
             *((uint8_t*)(base + (i * size)) + k) = *((uint8_t*)(base + (j * size)) + k);

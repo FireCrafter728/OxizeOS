@@ -1,7 +1,7 @@
 #pragma once
 #include <stdint.h>
 #include <stdbool.h>
-#include <DISK/ATA_PIO.h>
+#include <DISK/DISK.h>
 
 #define MAX_PROGRAM_HEADERS 32
 
@@ -71,5 +71,5 @@ typedef struct {
     const char* fileName;
 } __attribute__((packed)) ELF_File;
 
-bool ELF_GetFileData(ELF_File* elf, ATA_PIO_Device* device, const char* filePath);
-void ELF_LoadElf(ATA_PIO_Device* device, ELF_File* elf, uint32_t PhysAddr);
+bool ELF_GetFileData(ELF_File* elf, DISK* disk, const char* filePath);
+void ELF_LoadElf(DISK* disk, ELF_File* elf, uint32_t PhysAddr);

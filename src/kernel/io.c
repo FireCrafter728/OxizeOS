@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <io.h>
 
+
 void __attribute__((cdecl)) Halt();
 
 void HaltSystem()
@@ -16,4 +17,3 @@ void iowait()
 {
     outb(UNUSED_PORT, 0);
 }
-

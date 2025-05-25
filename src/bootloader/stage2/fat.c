@@ -319,7 +319,7 @@ void FAT_GetShortName(const char* fileName, char shortName[12])
 bool FAT_FindFile(MBR_Partition* part, FAT_File* file, const char* name, FAT_DirectoryEntry* entryOut)
 {
     char shortName[12];
-    char longName[MAX_LFN_SIZE];
+    // char longName[MAX_LFN_SIZE];
     FAT_DirectoryEntry entry;
 
     FAT_GetShortName(name, shortName);
