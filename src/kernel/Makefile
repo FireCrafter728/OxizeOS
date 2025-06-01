@@ -10,7 +10,7 @@ SOURCES_ASM=$(shell find . -name '*.asm')
 OBJECTS_C=$(patsubst %.c, $(output)/kernel/c/%.obj, $(SOURCES_C))
 OBJECTS_ASM=$(patsubst %.asm, $(output)/kernel/asm/%.obj, $(SOURCES_ASM))
 
-.PHONY: all kernel clean always
+.PHONY: all kernel clean always generate
 
 all: kernel
 

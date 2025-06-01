@@ -35,10 +35,10 @@ kernel: $(output)/kernel.bin
 $(output)/kernel.bin: dir
 	@$(MAKE) -C src/kernel
 
-
-x86Kern: $(output)/x86Kern.exe
-
-$(output)/x86Kern.exe: 
+#
+# x86Kernel
+#
+x86Kern:
 	@$(MAKE) -C src/x86Kernel
 
 #

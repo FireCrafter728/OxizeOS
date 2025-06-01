@@ -9,3 +9,4 @@ uint8_t ASMCALL inb(uint16_t port);
 void HaltSystem();
 void ASMCALL CLI();
 void ASMCALL STI();
+void ASMCALL Interrupt();

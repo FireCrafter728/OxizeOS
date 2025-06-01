@@ -6,6 +6,10 @@
 #include <io.h>
 
 #define ELF_HEADER_SIZE 52
+#define ELF_SECTION_SIZE 40
+
+#define ELF32_R_SYM(info)       ((info) >> 8)
+#define ELF32_R_TYPE(info)      ((uint8_t)(info))
 
 ELF_ProgramHeader ELF_ReadProgramHeader(ELF_File* elf, DISK* disk, FAT_File* fd, int index)
 {
@@ -27,12 +31,42 @@ ELF_ProgramHeader ELF_ReadProgramHeader(ELF_File* elf, DISK* disk, FAT_File* fd,
     return header;
 }
 
+ELF_SectionHeader ELF_ReadSectionHeader(ELF_File* elf, DISK* disk, FAT_File* fd, int index)
+{
+    ELF_SectionHeader header;
+
+    // char buffer[elf->header.ProgramSectionEntrySize];
+
+    // FAT_Seek(fd, elf->header.SectionHeaderOff + index * elf->header.ProgramSectionEntrySize);
+    // FAT_Read(disk, fd, elf->header.ProgramSectionEntrySize, &buffer);
+
+    FAT_Seek(fd, elf->header.SectionHeaderOff + index * elf->header.ProgramSectionEntrySize);
+    FAT_Read(disk, fd, elf->header.ProgramSectionEntrySize, &header);
+
+    // printf("[ELF Loader] [INFO]: ELF Program section %d: ", index);
+    // for(int i = 0; i < ELF_HEADER_SIZE; i++) {
+    //     printf("<0x%x> ", buffer[i]);
+    //     if(i > 0 && i % 16 == 0) printf("\r\n");
+    // }
+
+    return header;
+}
+
 void ELF_ReadProgramHeaders(ELF_File* elf, FAT_File* fd, DISK* disk)
 {
     ELF_ProgramHeader header;
     for(int i = 0; i < elf->header.ProgramHeaderEntries; i++) {
         header = ELF_ReadProgramHeader(elf, disk, fd, i);
         elf->programHeaders[i] = header;
+    }
+}
+
+void ELF_ReadProgramSections(ELF_File* elf, FAT_File* fd, DISK* disk)
+{
+    ELF_SectionHeader header;
+    for(int i = 0; i < elf->header.ProgramSectionEntries; i++) {
+        header = ELF_ReadSectionHeader(elf, disk, fd, i);
+        elf->sectionHeaders[i] = header;
     }
 }
 
@@ -77,6 +111,7 @@ bool ELF_GetFileData(ELF_File* elf, DISK* disk, const char* filePath)
     }
 
     ELF_ReadProgramHeaders(elf, fd, disk);
+    ELF_ReadProgramSections(elf, fd, disk);
     FAT_Close(fd);
 
     elf->fileName = filePath;
@@ -87,6 +122,67 @@ bool ELF_GetFileData(ELF_File* elf, DISK* disk, const char* filePath)
     return true;
 }
 
+static uint32_t ELF_GetSymbolValue(ELF_File* elf, DISK* disk, FAT_File* fd, uint32_t symtabSectionIndex, uint32_t symIndex)
+{
+    uint32_t symOffset = elf->sectionHeaders[symtabSectionIndex].Offset + symIndex * sizeof(ELF_Symbol);
+    ELF_Symbol symbol;
+
+    FAT_Seek(fd, symOffset);
+    FAT_Read(disk, fd, sizeof(ELF_Symbol), &symbol);
+    return symbol.Value;
+}
+
+static void ELF_Relocate(ELF_File* elf, DISK* disk, FAT_File* fd, uint32_t PhysAddr)
+{
+    for(uint8_t i = 0; i < elf->header.ProgramSectionEntries; i++)
+    {
+        if(elf->sectionHeaders[i].Type != SHT_REL && elf->sectionHeaders[i].Type != SHT_RELA) continue;
+        uint32_t count = elf->sectionHeaders[i].Size / elf->sectionHeaders[i].EntrySize;
+        for(uint32_t j = 0; j < count; j++)
+        {
+            uint32_t relOffset = elf->sectionHeaders[i].Offset + j * elf->sectionHeaders[i].EntrySize;
+            switch(elf->sectionHeaders[i].Type)
+            {
+                case SHT_REL:
+                {
+                    ELF_Rel rel;
+                    FAT_Seek(fd, relOffset);
+                    FAT_Read(disk, fd, sizeof(ELF_Rel), &rel);
+                    uint32_t* relocAddr = (uint32_t*)(PhysAddr + rel.Offset);
+                    uint32_t symValue = ELF_GetSymbolValue(elf, disk, fd, elf->sectionHeaders[i].Link, ELF32_R_SYM(rel.Info));
+                    switch(ELF32_R_TYPE(rel.Info))
+                    {
+                        case ELF_R_386_32: *relocAddr += symValue; break;
+                        case ELF_R_386_PC32: *relocAddr += symValue - (uint32_t)relocAddr; break;
+                        case ELF_R_386_RELAT: *relocAddr += PhysAddr;
+                        default: break;
+                    }
+                    break;
+                }
+                case SHT_RELA:
+                {
+                    ELF_Rela rela;
+                    FAT_Seek(fd, relOffset);
+                    FAT_Read(disk, fd, sizeof(ELF_Rela), &rela);
+
+                    uint32_t* relocAddr = (uint32_t*)(PhysAddr + rela.Offset);
+                    uint32_t symValue = ELF_GetSymbolValue(elf, disk, fd, elf->sectionHeaders[i].Link, ELF32_R_SYM(rela.Info));
+
+                    switch(ELF32_R_TYPE(rela.Info))
+                    {
+                        case ELF_R_386_32: *relocAddr = symValue + rela.Addend; break;
+                        case ELF_R_386_PC32: *relocAddr = symValue + rela.Addend - (uint32_t)relocAddr; break;
+                        case ELF_R_386_RELAT: *relocAddr = PhysAddr + rela.Addend; break;
+                        default: break;
+                    }
+                    break;
+                }
+                default: break;
+            }
+        }
+    }
+}
+
 void ELF_LoadElf(DISK* disk, ELF_File* elf, uint32_t PhysAddr)
 {
     printf("[ELF Loader] [INFO]: Loading ELF Executable at address 0x%x, Executable type: %d, Machine: %d, LoadMemorySize: 0x%x\r\n", PhysAddr, elf->header.Type, elf->header.machine, elf->LoadSize);
@@ -94,6 +190,8 @@ void ELF_LoadElf(DISK* disk, ELF_File* elf, uint32_t PhysAddr)
     FAT_File* fd = FAT_Open(disk, elf->fileName);
 
     elf->LoadAddr = PhysAddr;
+
+    ELF_Relocate(elf, disk, fd, PhysAddr);
 
     for(int i = 0; i < elf->header.ProgramHeaderEntries; i++) {
         if(elf->programHeaders[i].Type != PT_LOAD) continue;

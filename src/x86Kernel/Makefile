@@ -1,29 +1,35 @@
-build: dir $(output)/x86Kern.exe
-
-TARGET_CFLAGS += -c -Wall -Wextra -nostdlib -ffreestanding -fPIE -I $(src)/libs/ -I . -I Standart/
+TARGET_CFLAGS += -nostdlib -ffreestanding -fPIE -I $(src)/libs/ -I . -I Standart/ -I Drivers/ -I Drivers/HAL/
 TARGET_LINKFLAGS += -nostdlib -pie
 TARGET_ASMFLAGS += -f elf32
 TARGET_LIBS += -lgcc
 
 SOURCES_C=$(shell find . -name '*.c')
+HEADERS_C=$(shell find . -name '*.h')
 SOURCES_ASM=$(shell find . -name '*.asm')
+HEADERS_ASM=$(shell find . -name '*.inc')
 
 OBJECTS_C=$(patsubst %.c, $(output)/x86Kernel/c/%.obj, $(SOURCES_C))
 OBJECTS_ASM=$(patsubst %.asm, $(output)/x86Kernel/asm/%.obj, $(SOURCES_ASM))
 
-$(output)/x86Kern.exe: $(OBJECTS_C) $(OBJECTS_ASM)
-	$(TARGET_LD) $(TARGET_LINKFLAGS) -o $@ $^ $(TARGET_LIBS)
-	echo "Created -> $@"
+.PHONY: all generate dir build
 
-$(output)/x86Kernel/c/%.obj: %.c
-	@mkdir -p $(@D)
-	$(TARGET_CC) $(TARGET_CFLAGS) -o $@ $<
-	echo "Compiled -> $<"
+all: dir build
 
-$(output)/x86Kernel/asm/%.obj: %.asm
+build: generate $(output)/x86Kern.exe
+
+$(output)/x86Kern.exe: $(OBJECTS_ASM) $(OBJECTS_C)
+	@$(TARGET_LD) $(TARGET_LINKFLAGS) -Wl,-Map=$(output)/kernel.map -o $@ $^ $(TARGET_LIBS)
+	@echo "Created -> $@"
+
+$(output)/x86Kernel/c/%.obj: %.c $(HEADERS_C)
 	@mkdir -p $(@D)
-	$(TARGET_ASM) $(TARGET_ASMFLAGS) -o $@ $<
-	echo "Assembled -> $<"
+	@$(TARGET_CC) $(TARGET_CFLAGS) -c -o $@ $<
+	@echo "Compiled -> $<"
+
+$(output)/x86Kernel/asm/%.obj: %.asm $(HEADERS_ASM)
+	@mkdir -p $(@D)
+	@$(TARGET_ASM) $(TARGET_ASMFLAGS) -o $@ $<
+	@echo "Assembled -> $<"
 
 dir:
 	mkdir -p $(output)/x86Kernel

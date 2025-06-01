@@ -94,3 +94,7 @@ void ISR_Initialize()
     for(int i = 0; i < 256; i++) IDT_EnableGate(i);
 }
 
+uint32_t ISR_GetHandlersAddr()
+{
+    return (uint32_t)(uintptr_t)ISRHandlers;
+}

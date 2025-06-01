@@ -10,6 +10,7 @@
 #include <Memory/mmd.h>
 #include <ELFLoader/elf.h>
 #include <DISK/SATA_AHCI.h>
+#include <HAL/isr.h>
 
 extern uint8_t __bss_start;
 extern uint8_t __end;
@@ -36,8 +37,8 @@ void __attribute__((section(".entry"))) start(SystemInfo* System)
     }
 
     MMD_MemoryDriver driver;
-
     MMD_Initialize(&driver, System->memoryInfo);
+    System->ISRHandlers = ISR_GetHandlersAddr();
 
     ELF_File file;
     if(!ELF_GetFileData(&file, &disk, "BOOT/KERNEL/x86Kern.exe")) {

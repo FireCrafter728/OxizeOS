@@ -1,5 +1,4 @@
 #pragma once
-
 #include <stdint.h>
 
 typedef struct {
@@ -17,4 +16,5 @@ typedef struct
 {
     uint16_t bootDrive;
     MemoryInfo memoryInfo;
+    uint32_t ISRHandlers;
 } SystemInfo;

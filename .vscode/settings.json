@@ -71,6 +71,10 @@
         "elf.h": "c",
         "stacktrace": "c",
         "buffer": "c",
-        "sata_ahci.h": "c"
+        "sata_ahci.h": "c",
+        "util.h": "c",
+        "bootparams.h": "c",
+        "isr.h": "c",
+        "fat.h": "c"
     }
 }

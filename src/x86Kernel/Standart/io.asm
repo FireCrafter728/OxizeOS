@@ -30,3 +30,11 @@ global STI
 STI:
     sti
     ret
+
+;void ASMCALL Interrupt();
+global Interrupt
+Interrupt:
+    mov eax, 10
+    mov ebx, 0  
+    div ebx
+    ret
