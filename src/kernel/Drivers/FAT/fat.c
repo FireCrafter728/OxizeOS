@@ -184,11 +184,14 @@ uint32_t FAT_NextCluster(DISK* disk, uint32_t currentCluster)
 
 uint32_t FAT_Read(DISK* disk, FAT_File* file, uint32_t byteCount, void* dataOut)
 {
+    // printf("NEW READ, pos: %lu, size: %lu || ", file->Position, file->Size);
     FAT_FileData* fd = (file->Handle == ROOT_DIRECTORY_HANDLE) 
         ? &g_Data->RootDirectory 
         : &g_Data->OpenedFiles[file->Handle];
 
     uint8_t* u8DataOut = (uint8_t*)dataOut;
+
+    // printf("NEW READ, LBA: %d\r\n", (fd->Public.Position + byteCount + 511) / 512 + FAT_ClusterToLba(fd->CurrentCluster) + fd->CurrentSectorInCluster + 0x800);
 
     if (!fd->Public.IsDirectory || (fd->Public.IsDirectory && fd->Public.Size != 0))
         byteCount = min(byteCount, fd->Public.Size - fd->Public.Position);
@@ -197,11 +200,12 @@ uint32_t FAT_Read(DISK* disk, FAT_File* file, uint32_t byteCount, void* dataOut)
     {
         uint32_t leftInBuffer = SECTOR_SIZE - (fd->Public.Position % SECTOR_SIZE);
         uint32_t take = min(byteCount, leftInBuffer);
-
         memcpy(u8DataOut, fd->Buffer + fd->Public.Position % SECTOR_SIZE, take);
+        // printf("COPY: addrOut: %lu, addrSrc: %lu, num: %lu\r\n", u8DataOut, fd->Buffer + fd->Public.Position % SECTOR_SIZE, take);
         u8DataOut += take;
         fd->Public.Position += take;
         byteCount -= take;
+        // printf("bytecount: %lu, take: %lu, leftInBuffer: %lu, position: %lu, size: %lu\r\n", byteCount, take, leftInBuffer, fd->Public.Position, fd->Public.Size);
 
         if (leftInBuffer == take)
         {
@@ -246,14 +250,41 @@ bool FAT_ReadEntry(DISK* disk, FAT_File* file, FAT_DirectoryEntry* dirEntry)
     return FAT_Read(disk, file, sizeof(FAT_DirectoryEntry), dirEntry) == sizeof(FAT_DirectoryEntry);
 }
 
-void FAT_Seek(FAT_File* file, uint32_t Position)
+void FAT_Seek(DISK* disk, FAT_File* file, uint32_t Position)
 {
+    FAT_FileData* fd = &g_Data->OpenedFiles[file->Handle];
     file->Position = Position;
+    uint32_t clusterIndex = Position / (g_Data->BS.BootSector.SectorsPerCluster * g_Data->BS.BootSector.BytesPerSector);
+    uint32_t cluster = fd->FirstCluster;
+    for(uint32_t i = 0; i < clusterIndex; i++)
+    {
+        cluster = FAT_NextCluster(disk, cluster);
+        if(cluster >= 0x0FFFFFF8) {
+            printf("[FAT SEEK] [WARN]: Cluster is too high\r\n");
+            return;
+        }
+    }
+
+    fd->CurrentCluster = cluster;
+    uint32_t clusterOff = Position % (g_Data->BS.BootSector.SectorsPerCluster * g_Data->BS.BootSector.BytesPerSector);
+    uint32_t sector = clusterOff / g_Data->BS.BootSector.BytesPerSector;
+    uint32_t lba = FAT_ClusterToLba(cluster) + sector;
+    if(!MBR_ReadSectors(disk, lba, 1, fd->Buffer)) {
+        printf("[FAT SEEK] [ERROR]: Failed to read from diskr\n\n");
+        return;
+    }
+    fd->CurrentSectorInCluster = lba % g_Data->BS.BootSector.SectorsPerCluster;
 }
 
-void FAT_ResetPos(FAT_File* file)
+void FAT_ResetPos(DISK* disk, FAT_File* file)
 {
+    FAT_FileData* fd = &g_Data->OpenedFiles[file->Handle];
     file->Position = 0;
+    fd->CurrentCluster = fd->FirstCluster;
+    fd->CurrentSectorInCluster = 0;
+    if(!MBR_ReadSectors(disk, FAT_ClusterToLba(fd->FirstCluster), 1, fd->Buffer)) {
+        printf("[FAT SEEK] [ERROR]: Failed to read from disk\n\n");
+    }
 }
 
 void FAT_Close(FAT_File* file)

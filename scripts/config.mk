@@ -1,6 +1,7 @@
 MAKE_DISK_SIZE = 134217728 # 128 MiB, 134.22 MB
 
 export CFLAGS = -std=c17 -Wall -Wextra -O2
+export CXXFLAGS = -std=c++17 -Wall -Wextra -O2
 export ASMFLAGS =
 export CC = gcc
 export CXX = g++
@@ -14,6 +15,7 @@ export TARGET = i686-elf
 export TARGET_ASM = nasm
 export TARGET_ASMFLAGS =
 export TARGET_CFLAGS = -std=c99 -O2 -Wall -Wextra
+export TARGET_CXXFLAGS = -std=c++17 -O2 -Wall -Wextra
 export TARGET_CC = $(TARGET)-gcc
 export TARGET_CXX = $(TARGET)-g++
 export TARGET_LD = $(TARGET)-gcc

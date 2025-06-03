@@ -11,11 +11,13 @@
 #include <ELFLoader/elf.h>
 #include <DISK/SATA_AHCI.h>
 #include <HAL/isr.h>
+#include <Memory/memdefs.h>
 
 extern uint8_t __bss_start;
 extern uint8_t __end;
 
-typedef void (*x86Kernel)(SystemInfo* System);
+typedef void (*__attribute__((cdecl)) x86Kernel)();
+
 
 void __attribute__((section(".entry"))) start(SystemInfo* System)
 {
@@ -51,7 +53,8 @@ void __attribute__((section(".entry"))) start(SystemInfo* System)
     ELF_LoadElf(&disk, &file, loadAddr);
 
     x86Kernel kernelx86 = (x86Kernel)(loadAddr + file.header.entry);
-    kernelx86(System);
+    memcpy(SYSTEM_PARAMETER_BLOCK_ADDR, System, sizeof(System));
+    kernelx86();
 
     HaltSystem();
 }

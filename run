@@ -112,3 +112,6 @@ while ! VBoxManage list runningvms | grep -q "\"$VM_NAME\""; do
 done
 
 VBoxManage controlvm "$VM_NAME" setvideomodehint 1024 768 32
+if [[ $OPERATION == "debug" ]]; then
+    VBoxManage debugvm "$VM_NAME" log --release --debug
+fi

@@ -23,8 +23,8 @@ typedef struct {
     uint16_t ELFHeaderSize;
     uint16_t ProgramHeaderEntrySize;
     uint16_t ProgramHeaderEntries;
-    uint16_t ProgramSectionEntrySize;
-    uint16_t ProgramSectionEntries;
+    uint16_t SectionHeaderEntrySize;
+    uint16_t SectionHeaderEntries;
     uint16_t SectionHeaderStringTableIndex;
 } __attribute__((packed)) ELF_FileHeader;
 

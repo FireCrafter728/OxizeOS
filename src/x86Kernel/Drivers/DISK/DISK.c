@@ -27,19 +27,17 @@ bool DISK_Initialize(DISK *disk)
         return false;
     }
 
-    disk->SATAAhci.info = info;
-    if (!SATA_AHCI_Initialize(&disk->SATAAhci))
+    disk->device.info = info;
+    if (!SATA_AHCI_Initialize(&disk->device))
         return false;
-    break;
 
     return true;
 }
 
 bool DISK_ReadSectors(DISK *disk, uint32_t lba, uint16_t count, void *dataOut)
 {
-    if (!SATA_AHCI_ReadSectors(&disk->SATAAhci, lba, count, dataOut))
+    if (!SATA_AHCI_ReadSectors(&disk->device, lba, count, dataOut))
         return false;
-    break;
 
     return true;
 }

@@ -1,4 +1,8 @@
 #pragma once
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 #include <stdint.h>
 
 void clrscr();
@@ -9,3 +13,6 @@ void print_buffer(const char* msg, const void* buffer, uint32_t count);
 
 void e9_putc(char c);
 void e9_puts(const char* str);
+#ifdef __cplusplus
+}
+#endif
