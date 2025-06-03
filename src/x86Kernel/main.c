@@ -2,7 +2,6 @@
 #include <stdio.h>
 #include <io.h>
 #include <Interrupts/isr.h>
-#include <test.h>
 #include <Memory/memdefs.h>
 
 void __attribute__((cdecl)) __attribute__((section(".entry"))) _x86kernel()
@@ -15,8 +14,6 @@ void __attribute__((cdecl)) __attribute__((section(".entry"))) _x86kernel()
     ISR_Initialize(System->ISRHandlers);
 
     STI();
-
-    CPPTest();
 
     HaltSystem();
     while(1);

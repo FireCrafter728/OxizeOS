@@ -1,0 +1,14 @@
+#pragma once
+
+namespace std {
+    class exception {
+    public:
+        inline explicit exception(const char* message = "Exception") noexcept : msg(message) {}
+        virtual const char* what() const noexcept {
+            return msg;
+        }
+        virtual ~exception() noexcept {}
+    private:
+        const char* msg;
+    };
+}

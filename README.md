@@ -1,5 +1,5 @@
 # OxizeOS
-An OS Operating in BIOS / CSM. Currently only bootable from qemu
+An OS Operating in BIOS / CSM. Currently supported on most emulators, but might have problems with qemu / bochs
 
 # Installation process
 1. Installing dependencies
@@ -22,10 +22,11 @@ An OS Operating in BIOS / CSM. Currently only bootable from qemu
 
 ## 4) Running the OS
 - To run the OS, use `./run` in the terminal
-- To debug the OS using GDB, use `./debug` in the terminal
+- Debugging is currently not supported
 
 # Note
 - This OS Is only avaiable in BIOS with CSM support, UEFI support is not planned for now
 - This OS Is currently under developement, things may break, and the build process isn't fully tested
 - This OS Is Open-Sourced, meaning you can customize it as much as you want
 - QEMU installation is broken for me, so the updates will be relevant to VBox
+- x86Kernel is currently operating in both C & C++, things may break
