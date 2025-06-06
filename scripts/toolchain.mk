@@ -39,8 +39,9 @@ $(TOOLCHAIN_PREFIX)/bin/i686-elf-gcc: $(TOOLCHAIN_PREFIX)/bin/i686-elf-ld $(GCC_
 		--target=$(TARGET)				\
 		--disable-nls					\
 		--enable-languages=c,c++		\
-		--without-headers
-	$(MAKE) -j8 -C $(GCC_BUILD) all-gcc all-target-libgcc
+		--without-headers				\
+		CXXFLAGS="-std=c++11"
+	$(MAKE) -j4 -C $(GCC_BUILD) all-gcc all-target-libgcc
 	$(MAKE) -C $(GCC_BUILD) install-gcc install-target-libgcc
 	
 $(GCC_SRC).tar.xz:

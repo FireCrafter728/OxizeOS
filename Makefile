@@ -1,6 +1,6 @@
 include scripts/config.mk
 
-.PHONY: all disk_image x86Kern kernel bootloader clean tools_fat
+.PHONY: all libs disk_image x86Kern kernel bootloader clean clean-lib tools_fat
 
 all: dir disk_image tools_fat
 
@@ -50,13 +50,23 @@ $(output)/tools/fat: tools/fat/fat.c
 	@$(MAKE) -C tools/fat
 
 #
+# libs
+#
+libs:
+	@$(MAKE) -C libstdcpp
+
+#
 # dir
 #
 dir:
 	@mkdir -p $(output)
+	@mkdir -p $(lib)
 
 #
 # Clean
 #
 clean:
 	@rm -rf $(output)
+
+clean-lib:
+	@rm -rf $(lib)

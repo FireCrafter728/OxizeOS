@@ -1,0 +1,72 @@
+#pragma once
+#include <stdint.h>
+#include <stddef.h>
+#include <FAT/mbr.hpp>
+
+#define SECTOR_SIZE 512
+
+namespace x86Kernel
+{
+    namespace FAT32
+    {
+        struct __attribute__((packed)) DirectoryEntry
+        {
+            uint8_t Name[11];
+            uint8_t Attributes;
+            uint8_t _Reserved;
+            uint8_t CreatedTimeTenths;
+            uint16_t CreatedTime;
+            uint16_t CreatedDate;
+            uint16_t AccessedDate;
+            uint16_t FirstClusterHigh;
+            uint16_t ModifiedTime;
+            uint16_t ModifiedDate;
+            uint16_t FirstClusterLow;
+            uint32_t Size;
+        };
+
+        struct File
+        {
+            int Handle;
+            bool IsDirectory;
+            uint32_t Position;
+            uint32_t Size;
+        };
+
+        typedef enum {
+            FAT_ATTRIBUTE_READ_ONLY = 0x01,
+            FAT_ATTRIBUTE_HIDDEN = 0x02,
+            FAT_ATTRIBUTE_SYSTEM = 0x04,
+            FAT_ATTRIBUTE_VOLUME_ID = 0x08,
+            FAT_ATTRIBUTE_DIRECTORY = 0x10,
+            FAT_ATTRIBUTE_ARCHIVE = 0x20,
+            FAT_ATTRIBUTE_LFN = FAT_ATTRIBUTE_READ_ONLY | FAT_ATTRIBUTE_HIDDEN | FAT_ATTRIBUTE_SYSTEM | FAT_ATTRIBUTE_VOLUME_ID
+        } Attribs;
+
+        class FAT32
+        {
+        public:
+            FAT32() = default;
+            FAT32(DISK::DISK* disk);
+            bool Initialize(DISK::DISK* disk);
+            File* Open(const char* path);
+            uint32_t Read(File* file, uint32_t byteCount, void* dataOut);
+            void Seek(File* file, uint32_t Position);
+            void ResetPos(File* file);
+            bool ReadEntry(File* file, DirectoryEntry* entry);
+            void Close(File* file);
+            ~FAT32() = default;
+        private:
+            uint32_t DataSectionLba;
+            uint32_t TotalSectors;
+            DISK::DISK* disk;
+            bool ReadBootSector();
+            bool ReadFat(size_t lbaIndex);
+            uint32_t ClusterToLba(uint32_t cluster);
+            File* OpenEntry(DirectoryEntry* entry);
+            uint32_t NextCluster(uint32_t currentCluster);
+            void GetShortName(const char* fileName, char shortName[12]);
+            bool FindFile(File* file, const char* name, DirectoryEntry* entryOut);
+        };
+    }
+}

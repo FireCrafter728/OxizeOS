@@ -25,6 +25,8 @@ void __attribute__((section(".entry"))) start(SystemInfo* System)
 
     clrscr();
 
+    SystemInfo* SystemOut = (SystemInfo*)SYSTEM_PARAMETER_BLOCK_ADDR;
+
     HAL_Initialize();
 
     DISK disk;
@@ -52,8 +54,9 @@ void __attribute__((section(".entry"))) start(SystemInfo* System)
 
     ELF_LoadElf(&disk, &file, loadAddr);
 
+    memcpy(SystemOut, System, sizeof(SystemInfo));
+
     x86Kernel kernelx86 = (x86Kernel)(loadAddr + file.header.entry);
-    memcpy(SYSTEM_PARAMETER_BLOCK_ADDR, System, sizeof(System));
     kernelx86();
 
     HaltSystem();

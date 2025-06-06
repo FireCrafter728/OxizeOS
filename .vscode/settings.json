@@ -75,6 +75,14 @@
         "util.h": "c",
         "bootparams.h": "c",
         "isr.h": "c",
-        "fat.h": "c"
+        "fat.h": "c",
+        "*.in": "c",
+        "charconv": "c",
+        "expected": "c",
+        "ratio": "c",
+        "regex": "c",
+        "defarg4.C": "cpp",
+        "ranges": "cpp",
+        "stdarg.h": "c"
     }
 }

@@ -66,3 +66,35 @@ Interrupt:
     mov ebx, 0  
     div ebx
     ret
+
+
+; uint64_t ASMCALL rdmsr(uint32_t msr);
+global rdmsr
+rdmsr:
+    push ebp
+    mov ebp, esp
+
+    mov ecx, [ebp + 8]
+    
+    rdmsr
+
+    mov esp, ebp
+    pop ebp
+    ret
+
+
+; void ASMCALL wrmsr(uint32_t msr, uint64_t value);
+global wrmsr
+wrmsr:
+    push ebp
+    mov ebp, esp
+
+    mov ecx, [ebp + 8]
+    mov eax, [ebp + 12]
+    mov edx, [ebp + 16]
+
+    wrmsr
+
+    mov esp, ebp
+    pop ebp
+    ret

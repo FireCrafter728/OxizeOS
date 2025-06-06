@@ -74,20 +74,6 @@ void scrollback(unsigned lines)
     g_ScreenY -= lines;
 }
 
-void e9_putc(char c)
-{
-    outb(0xE9, c);
-}
-
-void e9_puts(const char* str)
-{
-    while(*str)
-    {
-        e9_putc(*str);
-        str++;
-    }
-}
-
 void putc(char c)
 {
     switch (c)
@@ -120,7 +106,6 @@ void putc(char c)
         scrollback(1);
 
     setcursor(g_ScreenX, g_ScreenY);
-    e9_putc(c);
 }
 
 void puts(const char* str)

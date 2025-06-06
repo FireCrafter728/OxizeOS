@@ -1,0 +1,11 @@
+ISR 0 - 31: CPU Exceptions
+
+ISR 32 - 56: APIC IRQs
+
+ISR 57 - 79: Unused
+
+ISR 80: X86 Hardware communication syscall(or sysenter)
+
+ISR 81: X64 Hardware communication syscall(or syscall)
+
+ISR 82 - 255: Unused
