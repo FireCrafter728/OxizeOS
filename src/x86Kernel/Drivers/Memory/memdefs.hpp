@@ -18,3 +18,6 @@
 
 #define SYSTEM_PARAMETER_BLOCK_ADDR         ((void*)0x262500)
 #define SYSTEM_PARAMETER_BLOCK_MAX_SIZE     0x0009DB00
+
+#define PROCESS_TABLES_ADDR                 ((void*)0x300000)
+#define PROCESS_TABLES_SIZE                 0x00001000

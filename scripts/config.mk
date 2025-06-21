@@ -28,10 +28,17 @@ export TARGET_LINKFLAGS =
 export TARGET_ARFLAGS =
 export TARGET_LIBS =
 
+
+export RUSTC = rustc
+export CARGO = cargo
+export CARGOFLAGS = build --release
+
+
 export output = $(abspath output)
 export scripts = $(abspath scripts)
 export src = $(abspath src)
 export lib = $(abspath lib)
+export projectDir = $(abspath .)
 
 BINUTILS_VERSION = 2.38
 BINUTILS_URL = https://ftp.gnu.org/gnu/binutils/binutils-$(BINUTILS_VERSION).tar.xz

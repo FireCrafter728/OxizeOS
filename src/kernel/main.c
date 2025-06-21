@@ -44,7 +44,7 @@ void __attribute__((section(".entry"))) start(SystemInfo* System)
     MMD_Initialize(&driver, System->memoryInfo);
     System->ISRHandlers = ISR_GetHandlersAddr();
 
-    ELF_File file;
+    static ELF_File file;
     if(!ELF_GetFileData(&file, &disk, "BOOT/KERNEL/x86Kern.exe")) {
         printf("[KERNEL] [ERROR]: Failed to read x86Kernel.exe header\r\n");
         HaltSystem();
@@ -53,6 +53,8 @@ void __attribute__((section(".entry"))) start(SystemInfo* System)
     uint32_t loadAddr = MMD_FindMemoryLocation(&driver, file.LoadSize);
 
     ELF_LoadElf(&disk, &file, loadAddr);
+
+    System->x86KernelElf = &file;
 
     memcpy(SystemOut, System, sizeof(SystemInfo));
 

@@ -36,6 +36,11 @@ fat32_volume_label:         times 11 db 0
 fat32_sysid:                times 8 db 0
 
 start:
+    mov ah, 0x0e
+    mov al, 0x0A
+    int 0x10
+    ; cli
+    ; hlt
     mov ax, PARTITION_ENTRY_SEGMENT
     mov es, ax
     mov di, PARTITION_ENTRY_OFFSET
@@ -306,7 +311,10 @@ STAGE2_LOAD_OFFSET      equ 0x500
 PARTITION_ENTRY_SEGMENT equ 0x2000
 PARTITION_ENTRY_OFFSET  equ 0x0
 
+msg_test:               db 'Hello, world!', ENDL, 0
+
 times 480-($-$$)        db 0
 
-global stage2_location
-stage2_location:        times 30 db 0
+stage2_location:        db 1
+times 29 db 0
+dw 0xAA55

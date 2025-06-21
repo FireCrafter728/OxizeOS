@@ -17,4 +17,5 @@ typedef struct
     uint16_t bootDrive;
     MemoryInfo memoryInfo;
     uint32_t ISRHandlers;
+    void* x86KernelElf;
 } SystemInfo;

@@ -4,7 +4,7 @@
 #define MEMORY_FAT_SIZE                     0x00010000
 
 #define BIT32_MEMORY_START                  0x100000U
-#define GLOBAL_MEMORY_START                 0x300000U
+#define GLOBAL_MEMORY_START                 0x500000U
 
 #define SATA_AHCI_COMMAND_LISTS_ADDR        0x160000U
 #define SATA_AHCI_COMMAND_LISTS_SIZE        0x00002000U

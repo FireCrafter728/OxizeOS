@@ -1,16 +1,21 @@
 include scripts/config.mk
 
-.PHONY: all libs disk_image x86Kern kernel bootloader clean clean-lib tools_fat
+.PHONY: all libs disk_image mount x86Kern kernel bootloader clean clean-lib tools_fat tools_clean
 
-all: dir disk_image tools_fat
+all: dir disk_image
 
 include scripts/toolchain.mk
 
 disk_image: $(output)/OxizeOS.hdd
 
-$(output)/OxizeOS.hdd: bootloader kernel x86Kern
-	@scripts/make_disk_image.sh $@ $(MAKE_DISK_SIZE)
-	@echo "--> Created: " $@
+$(output)/OxizeOS.hdd: image bootloader kernel x86Kern tools_fat
+	rm -f $@
+	output/image image.json $@
+#	scripts/make_disk_image.sh $@ $(MAKE_DISK_SIZE)
+
+mount:
+	@mkdir -p $(abspath ./OxizeOS_HDD)
+	@scripts/MountDiskImage.sh $(output)/OxizeOS.hdd $(abspath ./OxizeOS_HDD)
 
 #
 # Bootloader
@@ -44,16 +49,24 @@ x86Kern:
 #
 # Tools
 #
-tools_fat: $(output)/tools/fat
-$(output)/tools/fat: tools/fat/fat.c
+tools_fat:
 	@mkdir -p $(output)/tools
-	@$(MAKE) -C tools/fat
+	@$(MAKE) -C tools/FAT32
+
+tools_clean:
+	@rm -rf $(output)/tools/*
 
 #
 # libs
 #
 libs:
 	@$(MAKE) -C libstdcpp
+
+#
+# image
+#
+image:
+	@$(MAKE) -C tools/Image
 
 #
 # dir

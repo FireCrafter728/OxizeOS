@@ -34,11 +34,13 @@ using namespace x86Kernel;
 #define SATA_AHCI_PORT_SIG_ATAPI 0xEB140101
 
 #define SATA_AHCI_CMD_READ_DMA_EXT 0x25
+#define SATA_AHCI_CMD_WRITE_DMA_EXT 0x35
 
 enum
 {
     SATA_AHCI_CMD_IDENTIFY = 0x00,
     SATA_AHCI_CMD_READ = 0x01,
+    SATA_AHCI_CMD_WRITE = 0x02,
 };
 
 void EnableAHCI(SATA_AHCI::Device *device)
@@ -222,21 +224,15 @@ bool SATA_AHCI::Initialize(SATA_AHCI::Device *device)
 
     if (device->info.classCode != SATA_AHCI_MASS_STORAGE_CONTROLLER || device->info.subclass != SATA_AHCI_SATA_CONTROLLER || device->info.progIF != SATA_AHCI_1_0_CONTROLLER)
     {
-        bool found = false;
-        for (uint16_t i = 0; i < PCI_MAX_BUSSES && !found; i++)
-            for (uint8_t j = 0; j < PCI_MAX_DEVICES && !found; j++)
-                for (uint8_t k = 0; k < PCI_MAX_FUNCTIONS && !found; k++)
-                {
-                    if (!PCI::GetDeviceInfo(&device->info, i, j, k))
-                        continue;
-                    if (device->info.classCode == SATA_AHCI_MASS_STORAGE_CONTROLLER && device->info.subclass == SATA_AHCI_SATA_CONTROLLER && device->info.progIF == SATA_AHCI_1_0_CONTROLLER)
-                    {
-                        found = true;
-                        printf("[SATA AHCI] [INFO]: Found SATA AHCI Device in PCI\r\n");
-                        break;
-                    }
-                }
-        if (!found) return false;
+        PCI::DeviceInfo info;
+        info.classCode = SATA_AHCI_MASS_STORAGE_CONTROLLER;
+        info.subclass = SATA_AHCI_SATA_CONTROLLER;
+        info.progIF = SATA_AHCI_1_0_CONTROLLER;
+        if(!PCI::FindDevice(&info, &device->info)) {
+            printf("[SATA AHCI] [ERROR]: Failed to find SATA AHCI device in PCI\r\n");
+            return false;
+        }
+        printf("[SATA AHCI] [INFO]: Found SATA AHCI Device in PCI\r\n");
     }
 
     EnableAHCI(device);
@@ -299,8 +295,7 @@ bool SATA_AHCI::ReadSectors(SATA_AHCI::Device *device, uint32_t lba, uint16_t co
     port->port_mmio[SATA_AHCI_PxCI / 4] = (1u << SATA_AHCI_CMD_READ);
 
     int timeout = 1000000;
-    while ((port->port_mmio[SATA_AHCI_PxCI / 4] & (1u << SATA_AHCI_CMD_READ)) && timeout)
-        timeout--;
+    while ((port->port_mmio[SATA_AHCI_PxCI / 4] & (1u << SATA_AHCI_CMD_READ)) && timeout--) sleep(1000);
 
     if (timeout <= 0)
     {
@@ -323,6 +318,68 @@ bool SATA_AHCI::ReadSectors(SATA_AHCI::Device *device, uint32_t lba, uint16_t co
     if ((port->port_mmio[SATA_AHCI_PxTFD / 4] & 0xFF) & (1 << 0))
     {
         printf("[SATA AHCI] [ERROR]: Failed to read from DISK, Read sectors status Error\r\n");
+        return false;
+    }
+
+    return true;
+}
+
+bool SATA_AHCI::WriteSectors(Device* device, uint32_t lba, uint16_t count, const void* buffer)
+{
+    SATA_AHCI::Port* port = &device->AHCIPorts[0];
+    port->port_mmio[SATA_AHCI_PxIS / 4] = 0xFFFFFFFF;
+
+    CommandHeader* cmdHeader = &port->commandHeaders[SATA_AHCI_CMD_WRITE];
+    cmdHeader->CommandFISLength = 5;
+    cmdHeader->WriteDirection = 1;
+    cmdHeader->PRDTLength = 1;
+
+    CommandTable* cmdTable = port->commandTables[SATA_AHCI_CMD_WRITE];
+    cmdTable->PRDTEntries[0].DataBaseAddressLow = (uint32_t)(uintptr_t)buffer;
+    cmdTable->PRDTEntries[0].DataBaseAddressHigh = 0;
+    cmdTable->PRDTEntries[0].ByteCountAndInterrupt = ((count * SECTOR_SIZE) - 1) | (1u << 31);
+
+    COMMAND_FIS* fis = (COMMAND_FIS*)&cmdTable->CommandFIS[0];
+    fis->fisType = 0x27;
+    fis->commandControlBit = 1;
+    fis->ataCommandCode = SATA_AHCI_CMD_WRITE_DMA_EXT;
+
+    fis->LBALow0 = (uint8_t)(lba & 0xFF);
+    fis->LBALow1 = (uint8_t)((lba >> 8) & 0xFF);
+    fis->LBALow2 = (uint8_t)((lba >> 16) & 0xFF);
+    fis->deviceRegister = 1 << 6;
+
+    fis->LBAHigh3 = (uint8_t)((lba >> 24) & 0xFF);
+    fis->LBAHigh4 = 0;
+    fis->LBAHigh5 = 0;
+
+    fis->sectorCountLow = (uint8_t)(count & 0xFF);
+    fis->sectorCountHigh = (uint8_t)((count >> 8) & 0xFF);
+
+    port->port_mmio[SATA_AHCI_PxCI / 4] = (1u << SATA_AHCI_CMD_WRITE);
+
+    int timeout = 1000000;
+    while((port->port_mmio[SATA_AHCI_PxCI / 4] & (1u << SATA_AHCI_CMD_WRITE)) && timeout--) sleep(1000);
+
+    if(timeout <= 0) {
+        printf("[SATA AHCI] [ERROR]: Failed to write to DISK, timeout\r\n");
+        return false;
+    }
+
+    if(port->port_mmio[SATA_AHCI_PxSERR] != 0) {
+        printf("[SATA AHCI] [ERROR]: Failed to write to DISK, error code: 0x%lx\r\n", port->port_mmio[SATA_AHCI_PxSERR]);
+        return false;
+    }
+
+    if (port->port_mmio[SATA_AHCI_PxIS / 4] & (1u << 30))
+    {
+        printf("[SATA AHCI] [ERROR]: Failed to write from DISK, Task File Error\r\n");
+        return false;
+    }
+
+    if ((port->port_mmio[SATA_AHCI_PxTFD / 4] & 0xFF) & (1 << 0))
+    {
+        printf("[SATA AHCI] [ERROR]: Failed to write from DISK, Write sectors status Error\r\n");
         return false;
     }
 

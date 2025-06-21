@@ -2,7 +2,7 @@ TARGET_CFLAGS += -nostdlib -ffreestanding -fPIC -I $(src)/libs/ -I . -I Standart
 TARGET_CXXFLAGS += -nostdlib -ffreestanding -fPIC -I -fno-rtti -fno-exceptions -I $(src)/libs/ -I . -I Standart/ -I Drivers/ -I $(lib)/Include
 TARGET_LINKFLAGS += -nostdlib -pie -T linker.ld -L $(lib)
 TARGET_ASMFLAGS += -f elf32
-TARGET_LIBS += -lgcc -l:libstdcpp.lib
+TARGET_LIBS += -l:libstdcpp.lib -lgcc 
 
 SOURCES_C=$(shell find . -name '*.c')
 HEADERS_C=$(shell find . -name '*.h')

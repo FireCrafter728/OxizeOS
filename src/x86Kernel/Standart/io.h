@@ -22,6 +22,7 @@ void ASMCALL Interrupt();
 void iowait();
 uint64_t ASMCALL rdmsr(uint32_t msr);
 void ASMCALL wrmsr(uint32_t msr, uint64_t value);
+void ASMCALL sleep(uint32_t iterations);
 
 #ifdef __cplusplus
 }

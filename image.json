@@ -1,0 +1,63 @@
+{
+    "entries": [
+        {"operation":   "createdisk", 
+        "flags":        ["input", "/dev/zero", "output", "$ARG1", "bps", 512, "count", 2097152]},
+
+        {"operation":   "diskpart", 
+        "flags":        ["input", "$ARG1", "operation", "mklabel"], 
+        "extraflags":   ["partSchemeType", "msdos"]},
+
+        {"operation":   "diskpart", 
+        "flags":        ["input", "$ARG1", "operation", "mkpart"], 
+        "extraflags":   ["partType", "primary", "partStartLba", 2048, "partSectors", 262144]},
+
+        {"operation":   "diskpart", 
+        "flags":        ["input", "$ARG1", "operation", "set"], 
+        "extraflags":   ["partitionIndex", 1, "variable", "boot", "value", "on"]},
+
+        {"operation":   "diskpart",
+        "flags":        ["input", "$ARG1", "operation", "mkpart"],
+        "extraflags":   ["partType", "primary", "partStartLba", 266240, "partSectors", 1048576]},
+
+        {"operation":   "fat", 
+        "flags":        ["input", "$ARG1", "operation", "mkfs"], 
+        "extraflags":   ["volumelabel", "OXIZEOS"]},
+
+        {"operation":   "imageScript", 
+        "flags":        ["input", "$ARG1", "operation", "setBootloader"], 
+        "extraflags":   ["path", "output/stage2.bin"]},
+
+        {"operation":   "imageScript", 
+        "flags":        ["input", "$ARG1", "operation", "setBootFile"], 
+        "extraflags":   ["path", "output/stage1.bin"]},
+
+        {"operation":   "fat", 
+        "flags":        ["input", "$ARG1", "operation", "mkdir"], 
+        "extraflags":   ["path", "/BOOT"]},
+
+        {"operation":   "fat", 
+        "flags":        ["input", "$ARG1", "operation", "mkdir"], 
+        "extraflags":   ["path", "/BOOT/KERNEL"]},
+
+        {"operation":   "fat", 
+        "flags":        ["input", "$ARG1", "operation", "mkdir"], 
+        "extraflags":   ["path", "/tests"]},
+
+        {"operation":   "fat", 
+        "flags":        ["input", "$ARG1", "operation", "diskcpy"], 
+        "extraflags":   ["hostPath", "output/kernel.bin", "diskPath", "/BOOT/KERNEL/kernel.bin"]},
+
+        {"operation":   "fat", 
+        "flags":        ["input", "$ARG1", "operation", "diskcpy"], 
+        "extraflags":   ["hostPath", "output/x86Kern.exe", "diskPath", "/BOOT/KERNEL/x86Kern.exe"]},
+
+        {"operation":   "fat", 
+        "flags":        ["input", "$ARG1", "operation", "diskcpy"], 
+        "extraflags":   ["hostPath", "test.txt", "diskPath", "/tests/test.txt"]},
+
+        {"operation":   "fat", 
+        "flags":        ["input", "$ARG1", "operation", "diskcpy"], 
+        "extraflags":   ["hostPath", "LFNTestFile.text", "diskPath", "/tests/LFNTestFile.text"]}
+
+    ]
+}

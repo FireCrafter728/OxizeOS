@@ -40,7 +40,7 @@ void __attribute__((cdecl)) start(uint16_t bootDrive, void* partition)
     System.bootDrive = bootDrive;
 
     // load kernel
-    FAT_File* fd = FAT_Open(&part, "BOOT/BIOS/kernel.bin");
+    FAT_File* fd = FAT_Open(&part, "BOOT/KERNEL/kernel.bin");
     uint32_t read = 0;
     uint8_t* kernelBuffer = Kernel;
     while ((read = FAT_Read(&part, fd, MEMORY_LOAD_SIZE, KernelLoadBuffer)))

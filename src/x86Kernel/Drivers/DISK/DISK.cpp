@@ -25,7 +25,7 @@ bool DISK::Initialize(DiskParams *params)
                 if (info.classCode == SATA_AHCI_MASS_STORAGE_CONTROLLER && info.subclass == SATA_AHCI_SATA_CONTROLLER && info.progIF == SATA_AHCI_1_0_CONTROLLER)
                 {
                     found = true;
-                    printf("[DISK] [INFO]: SATA AHCI Controller found\r\n");
+                    printf("[DISK] [INFO]: SATA AHCI Controller found, bus: %u, device: %u, function: %u\r\n", info.bus, info.device, info.function);
                     break;
                 }
             }
@@ -46,8 +46,10 @@ bool DISK::Initialize(DiskParams *params)
 
 bool DISK::ReadSectors(uint32_t lba, uint16_t count, void *dataOut)
 {
-    if (!SATA_AHCI::ReadSectors(&params->device, lba, count, dataOut))
-        return false;
+    return SATA_AHCI::ReadSectors(&params->device, lba, count, dataOut);
+}
 
-    return true;
+bool DISK::WriteSectors(uint32_t lba, uint16_t count, const void* buffer)
+{
+    return SATA_AHCI::WriteSectors(&params->device, lba, count, buffer);
 }

@@ -46,6 +46,20 @@
                 "-nostdlib",
                 "-m32"
             ]
+        },
+        {
+            "name": "HostTools",
+            "includePath": [
+                "${workspaceFolder}/**"
+            ],
+            "defines": [],
+            "compilerPath": "/usr/bin/gcc",
+            "cStandard": "c17",
+            "cppStandard": "gnu++17",
+            "intelliSenseMode": "linux-gcc-x64",
+            "forcedInclude": [
+                "${workspaceFolder}/tools/FAT32/global.hpp"
+            ]
         }
     ],
     "version": 4

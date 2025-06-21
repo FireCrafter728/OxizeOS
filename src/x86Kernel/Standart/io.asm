@@ -32,7 +32,7 @@ global outd
 outd:
     mov dx, [esp + 4]
     mov eax, [esp + 8]
-    in eax, dx
+    out dx, eax
     ret
 
 global ind
@@ -95,6 +95,28 @@ wrmsr:
 
     wrmsr
 
+    mov esp, ebp
+    pop ebp
+    ret
+
+;void ASMCALL sleep(uint32_t iterations);
+global sleep
+sleep:
+    push ebp
+    mov ebp, esp
+
+    mov ecx, [ebp + 8]
+
+.loop:
+    cmp ecx, 0
+    je .done
+
+    pause
+
+    dec ecx
+    jmp .loop
+
+.done:
     mov esp, ebp
     pop ebp
     ret

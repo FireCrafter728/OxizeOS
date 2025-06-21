@@ -106,5 +106,6 @@ namespace x86Kernel
 
         bool Initialize(Device *device);
         bool ReadSectors(Device *device, uint32_t lba, uint16_t count, void *dataOut);
+        bool WriteSectors(Device* device, uint32_t lba, uint16_t count, const void* buffer);
     };
 }

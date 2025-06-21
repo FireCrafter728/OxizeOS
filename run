@@ -48,8 +48,10 @@ create_vm() {
     VBoxManage modifyvm "$VM_NAME" --memory 256 --acpi on --boot1 disk --nic1 nat
     VBoxManage modifyvm "$VM_NAME" --ostype "Other" --cpus 1
     VBoxManage storagectl "$VM_NAME" --name "OxizeOS" --add sata --controller IntelAhci --portcount 1
-    VBoxManage storageattach "$VM_NAME" --storagectl "OxizeOS" --port 0 --device 0 --type hdd --medium "$DISK_PATH" 
+    VBoxManage storageattach "$VM_NAME" --storagectl "OxizeOS" --port 0 --device 0 --type hdd --medium "$DISK_PATH" --type hdd --nonrotational on
     VBoxManage modifyvm "$VM_NAME" --vram 128
+    VBoxManage modifyvm "$VM_NAME" --graphicscontroller vmsvga
+    VBoxManage modifyvm "$VM_NAME" --ioapic on
 }
 
 # Check for explicit options
