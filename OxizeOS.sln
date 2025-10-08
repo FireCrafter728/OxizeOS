@@ -4,8 +4,11 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 VisualStudioVersion = 17.14.36518.9
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Bootloader", "Bootloader\Bootloader.vcxproj", "{1DC7EE91-24B1-4CD3-8146-B30B727AA380}"
+	ProjectSection(ProjectDependencies) = postProject
+		{8F800852-51CA-4B8A-BD15-15AE1CBAECD1} = {8F800852-51CA-4B8A-BD15-15AE1CBAECD1}
+	EndProjectSection
 EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "gptpart", "tools\gptpart\gptpart.vcxproj", "{4162F114-316F-44BF-A520-B0D567386F62}"
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "cpprt", "cpprt\cpprt.vcxproj", "{8F800852-51CA-4B8A-BD15-15AE1CBAECD1}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -23,14 +26,14 @@ Global
 		{1DC7EE91-24B1-4CD3-8146-B30B727AA380}.Release|x64.Build.0 = Release|x64
 		{1DC7EE91-24B1-4CD3-8146-B30B727AA380}.Release|x86.ActiveCfg = Release|Win32
 		{1DC7EE91-24B1-4CD3-8146-B30B727AA380}.Release|x86.Build.0 = Release|Win32
-		{4162F114-316F-44BF-A520-B0D567386F62}.Debug|x64.ActiveCfg = Debug|x64
-		{4162F114-316F-44BF-A520-B0D567386F62}.Debug|x64.Build.0 = Debug|x64
-		{4162F114-316F-44BF-A520-B0D567386F62}.Debug|x86.ActiveCfg = Debug|Win32
-		{4162F114-316F-44BF-A520-B0D567386F62}.Debug|x86.Build.0 = Debug|Win32
-		{4162F114-316F-44BF-A520-B0D567386F62}.Release|x64.ActiveCfg = Release|x64
-		{4162F114-316F-44BF-A520-B0D567386F62}.Release|x64.Build.0 = Release|x64
-		{4162F114-316F-44BF-A520-B0D567386F62}.Release|x86.ActiveCfg = Release|Win32
-		{4162F114-316F-44BF-A520-B0D567386F62}.Release|x86.Build.0 = Release|Win32
+		{8F800852-51CA-4B8A-BD15-15AE1CBAECD1}.Debug|x64.ActiveCfg = Debug|x64
+		{8F800852-51CA-4B8A-BD15-15AE1CBAECD1}.Debug|x64.Build.0 = Debug|x64
+		{8F800852-51CA-4B8A-BD15-15AE1CBAECD1}.Debug|x86.ActiveCfg = Debug|Win32
+		{8F800852-51CA-4B8A-BD15-15AE1CBAECD1}.Debug|x86.Build.0 = Debug|Win32
+		{8F800852-51CA-4B8A-BD15-15AE1CBAECD1}.Release|x64.ActiveCfg = Release|x64
+		{8F800852-51CA-4B8A-BD15-15AE1CBAECD1}.Release|x64.Build.0 = Release|x64
+		{8F800852-51CA-4B8A-BD15-15AE1CBAECD1}.Release|x86.ActiveCfg = Release|Win32
+		{8F800852-51CA-4B8A-BD15-15AE1CBAECD1}.Release|x86.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

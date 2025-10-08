@@ -8,7 +8,13 @@
 ** Written by VirtualBox 7.2.2 (r170484)
 -->
 <VirtualBox xmlns="http://www.virtualbox.org/" version="1.19-windows">
-  <Machine uuid="{ba80e2d8-0f29-420e-aa31-79ce93707cb8}" name="OxizeOS" OSType="Other_64" snapshotFolder="Snapshots" lastStateChange="2025-10-06T16:27:50Z">
+  <Machine uuid="{ba80e2d8-0f29-420e-aa31-79ce93707cb8}" name="OxizeOS" OSType="Other_64" snapshotFolder="Snapshots" lastStateChange="2025-10-08T15:12:19Z">
+    <MediaRegistry>
+      <HardDisks>
+        <HardDisk uuid="{b837fa24-97b6-410d-99b6-81a05b983eb3}" location="OxizeOS.vhd" format="VHD" type="Normal"/>
+        <HardDisk uuid="{34337db9-a639-46e4-9f42-8d6c9a177a4e}" location="OxizeOS_1.vhd" format="VHD" type="Normal"/>
+      </HardDisks>
+    </MediaRegistry>
     <ExtraData>
       <ExtraDataItem name="GUI/LastCloseAction" value="PowerOff"/>
       <ExtraDataItem name="GUI/LastNormalWindowPosition" value="0,23,1440,830,max"/>
@@ -16,7 +22,7 @@
     </ExtraData>
     <Hardware>
       <Memory RAMSize="512"/>
-      <Display VRAMSize="6"/>
+      <Display controller="VMSVGA" VRAMSize="128"/>
       <Firmware type="EFI"/>
       <BIOS>
         <IOAPIC enabled="true"/>
@@ -34,17 +40,27 @@
       </USB>
       <Network>
         <Adapter slot="0" enabled="true" MACAddress="080027749A66">
-          <NAT/>
+          <NAT localhost-reachable="true"/>
         </Adapter>
       </Network>
+      <UART>
+        <Port slot="0" enabled="false" IOBase="0xe9" IRQ="4" hostMode="Disconnected"/>
+      </UART>
       <AudioAdapter useDefault="true" driver="WAS" enabled="true" enabledOut="true"/>
       <Clipboard/>
       <GuestProperties>
         <GuestProperty name="/VirtualBox/HostInfo/GUI/LanguageID" value="lt_LT" timestamp="1759768070357768800" flags="RDONLYGUEST"/>
       </GuestProperties>
       <StorageControllers>
-        <StorageController name="IDE" type="PIIX4" PortCount="2" useHostIOCache="true" Bootable="true">
-          <AttachedDevice passthrough="false" type="DVD" hotpluggable="false" port="0" device="0"/>
+        <StorageController name="OxizeOS" type="AHCI" PortCount="1" useHostIOCache="false" Bootable="true" IDE0MasterEmulationPort="0" IDE0SlaveEmulationPort="1" IDE1MasterEmulationPort="2" IDE1SlaveEmulationPort="3">
+          <AttachedDevice type="HardDisk" hotpluggable="false" port="0" device="0">
+            <Image uuid="{b837fa24-97b6-410d-99b6-81a05b983eb3}"/>
+          </AttachedDevice>
+        </StorageController>
+        <StorageController name="OxizeOS-NVMe" type="NVMe" PortCount="1" useHostIOCache="false" Bootable="true">
+          <AttachedDevice type="HardDisk" hotpluggable="false" port="0" device="0">
+            <Image uuid="{34337db9-a639-46e4-9f42-8d6c9a177a4e}"/>
+          </AttachedDevice>
         </StorageController>
       </StorageControllers>
       <CPU>
