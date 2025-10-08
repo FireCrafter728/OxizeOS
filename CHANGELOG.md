@@ -11,3 +11,6 @@
 - Adds `AsciiToUnicode`, which converts ASCII strings into Unicode strings, using a 16KiB buffer, meaning 8191 total characters.
 - And some other changes
 
+## 2025-10-08 0.1.0003 PCI Implementation build InDev unconfirmed
+- Added implementation for the PCI driver for communicating with PCI devices
+- Also adds `inb`, `outb`, `inw`, `outw`, `ind`, `outd`

@@ -28,3 +28,12 @@ const wchar_t* AsciiToUnicode(const char* str);
 void HaltSystem();
 
 extern "C" void HaltSystemImpl();
+
+extern "C" uint8_t inb(uint16_t port);
+extern "C" void outb(uint16_t port, uint8_t value);
+
+extern "C" uint16_t inw(uint16_t port);
+extern "C" void outw(uint16_t port, uint16_t value);
+
+extern "C" uint32_t ind(uint16_t port);
+extern "C" void outd(uint16_t port, uint32_t value);
