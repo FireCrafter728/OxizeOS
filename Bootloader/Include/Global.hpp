@@ -1,6 +1,7 @@
 #pragma once
 #include <Uefi.h>
 #include <cstdarg>
+#include <Library/BaseMemoryLib.h>
 
 typedef signed char int8_t;
 typedef unsigned char uint8_t;
@@ -37,3 +38,5 @@ extern "C" void outw(uint16_t port, uint16_t value);
 
 extern "C" uint32_t ind(uint16_t port);
 extern "C" void outd(uint16_t port, uint32_t value);
+
+extern "C" void* memcpy(void* dst, const void* src, uint32_t num);

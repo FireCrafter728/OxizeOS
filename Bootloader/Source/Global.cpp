@@ -66,3 +66,24 @@ void HaltSystem()
 	printf("System halted");
 	HaltSystemImpl();
 }
+
+int64_t CompareMem(const void* s1, const void* s2, uint64_t n) {
+	const uint8_t* a = (const uint8_t*)s1;
+	const uint8_t* b = (const uint8_t*)s2;
+	for (uint64_t i = 0; i < n; i++) {
+		if (a[i] != b[i]) return (int64_t)a[i] - (int64_t)b[i];
+	}
+	return 0;
+}
+
+#pragma function(memcpy)
+extern "C" void* memcpy(void* dst, const void* src, uint32_t num)
+{
+	uint8_t* u8Dst = (uint8_t*)dst;
+	const uint8_t* u8Src = (const uint8_t*)src;
+
+	for (uint32_t i = 0; i < num; i++)
+		u8Dst[i] = u8Src[i];
+
+	return dst;
+}

@@ -134,6 +134,7 @@
       <ControlFlowGuard>false</ControlFlowGuard>
       <TreatWChar_tAsBuiltInType>false</TreatWChar_tAsBuiltInType>
       <ForcedIncludeFiles>Global.hpp</ForcedIncludeFiles>
+      <WholeProgramOptimization>false</WholeProgramOptimization>
     </ClCompile>
     <Link>
       <SubSystem>EFI Application</SubSystem>
@@ -150,11 +151,17 @@
     </NASM>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="Source\Drivers\ACPI\acpi.cpp" />
+    <ClCompile Include="Source\Drivers\PCI\pci.cpp" />
+    <ClCompile Include="Source\Drivers\PCI\pcie.cpp" />
     <ClCompile Include="Source\Global.cpp" />
     <ClCompile Include="Source\print.cpp" />
     <ClCompile Include="Source\main.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="Include\Drivers\ACPI\acpi.hpp" />
+    <ClInclude Include="Include\Drivers\PCI\pci.hpp" />
+    <ClInclude Include="Include\Drivers\PCI\pcie.hpp" />
     <ClInclude Include="Include\Global.hpp" />
     <ClInclude Include="Include\print.hpp" />
   </ItemGroup>
