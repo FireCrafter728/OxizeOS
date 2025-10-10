@@ -14,3 +14,8 @@
 ## 2025-10-08 0.1.0003 PCI Implementation build InDev unconfirmed
 - Added implementation for the PCI driver for communicating with PCI devices
 - Also adds `inb`, `outb`, `inw`, `outw`, `ind`, `outd`
+
+## 2025-10-10 0.1.0004 PCIe Implementation build InDev unconfirmed
+- Added implementation of a minimal ACPI, no MADT parsing, dedicated only for finding the MCFG entries.
+- Added implementation of PCIe, similar to PCI, but some things are combined into one, and uses a different way to access configurations
+- The ACPI, PCI & PCIe implementations currently don't work, since neither the ACPI, nor the MCFG, nor the PCI config space are mapped to the virtual memory. Fixes coming in next build(s)
