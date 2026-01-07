@@ -1,0 +1,8 @@
+# OxizeOS Changelog
+
+## `<Date> <Version>: <Title>(<status>)`
+
+## 2026-01-07 1.0.0.0001: Initial Update
+- Uses the **Image** tool from `OxizeOS-Deprecated` repo together with the `FAT` tool, modified for GPT
+- Uses Limine bootloader with the limine boot protocol to boot tskschl.exe
+- tskschl.exe currently just makes the screen cyan using the GOP Framebuffer

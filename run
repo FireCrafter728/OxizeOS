@@ -1,0 +1,110 @@
+#!/bin/bash
+
+# Prevent execution when errors appear
+set -e
+
+# Vars
+
+OPERATION=$1
+
+VM_NAME="OxizeOS"
+DISK_PATH="output/OxizeOS.hdd"
+
+# Functions for VM management
+
+# Deletes the VM
+
+delete_vm() {
+    echo "Deleting VM $VM_NAME"
+    if VBoxManage list runningvms | grep -q "\"$VM_NAME\""; then
+        echo "Powering off VM $VM_NAME"
+        VBoxManage controlvm "$VM_NAME" poweroff
+        while VBoxManage list runningvms | grep -q "\"$VM_NAME\""; do
+            sleep 0.5
+        done
+    fi
+    VBoxManage unregistervm "$VM_NAME" || true
+    rm -rf VBoxVM
+}
+
+# Creates the VM
+
+create_vm() {
+    if [[ ! -f "$DISK_PATH" ]]; then
+        echo "Disk image $DISK_PATH Doesn't exist"
+        exit 1 
+    fi
+    echo "Creating new VM $VM_NAME"
+    mkdir -p VBoxVM
+
+    VBoxManage createvm --name "$VM_NAME" --basefolder "$(pwd)/VBoxVM"
+    VBoxManage registervm "VBoxVM/$VM_NAME/$VM_NAME.vbox"
+
+	VBoxManage modifyvm "$VM_NAME" --chipset ich9 --firmware efi --pae on
+    VBoxManage modifyvm "$VM_NAME" --memory 512 --acpi on --boot1 disk --nic1 nat
+    VBoxManage modifyvm "$VM_NAME" --ostype "Other" --cpus 1
+    VBoxManage storagectl "$VM_NAME" --name "OxizeOS" --add nvme --controller NVMe --bootable on
+    VBoxManage storageattach "$VM_NAME" --storagectl "OxizeOS" --port 0 --device 0 --type hdd --medium "$DISK_PATH" --nonrotational on
+    VBoxManage modifyvm "$VM_NAME" --vram 128
+    VBoxManage modifyvm "$VM_NAME" --graphicscontroller vmsvga
+    VBoxManage modifyvm "$VM_NAME" --ioapic on
+}
+
+# Check for explicit options
+
+if [[ "$OPERATION" == "delete" ]]; then
+    delete_vm
+    exit 0
+elif [[ "$OPERATION" == "create" ]]; then
+    create_vm
+    exit 0
+elif [[ "$OPERATION" == "recreate" ]]; then
+    delete_vm
+    create_vm
+    exit 0
+fi
+
+# Check if VM is already running, useful for script errors
+
+if VBoxManage list runningvms | grep -q "\"$VM_NAME\""; then
+    echo "VM $VM_NAME Is already running"
+    read -p "Choose action: [R]Power off the VM and start it again, [K]Kill the VM and exit execution, [E]Exit execution: [E] " choice
+    case "$choice" in
+        [Rr])
+            echo "Restarting VM $VM_NAME"
+            VBoxManage controlvm "$VM_NAME" poweroff
+            while VBoxManage list runningvms | grep -q "\"$VM_NAME\""; do
+                sleep 0.5
+            done
+            VBoxManage startvm "$VM_NAME" --type separate
+            exit 0
+            ;;
+        [Kk])
+            echo "Powering off VM $VM_NAME"
+            VBoxManage controlvm "$VM_NAME" poweroff
+            exit 0
+            ;;
+        *)
+            echo "Exiting"
+            exit 0
+            ;;
+    esac
+fi
+
+# Check if creating a new VM is needed
+
+if VBoxManage list vms | grep -q "\"$VM_NAME\""; then
+    echo "VM $VM_NAME Already exists"
+else
+    create_vm
+fi
+
+# Start the VM
+
+echo "Starting $VM_NAME"
+
+VBoxManage startvm "$VM_NAME" --type separate
+
+while ! VBoxManage list runningvms | grep -q "\"$VM_NAME\""; do
+    sleep 0.5
+done

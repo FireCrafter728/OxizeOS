@@ -1,0 +1,45 @@
+{
+	"entries": [
+		{"operation":	"createdisk",
+		"flags":		["input", "/dev/zero", "output", "$ARG1", "bps", "4M", "count", 256]},
+
+		{"operation":	"diskpart",
+		"flags": 		["input", "$ARG1", "operation", "mkgpt"]},
+
+		{"operation":	"diskpart",
+		"flags":		["input", "$ARG1", "operation", "mkpart"],
+		"extraflags":	["partIndex", 1, "partLabel", "ESP", "partType", "EF00", "partStartLba", 2048, "partSectors", 262144]},
+
+		{"operation":	"diskpart",
+		"flags":		["input", "$ARG1", "operation", "mkpart"],
+		"extraflags":	["partIndex", 2, "partLabel", "OxizeOS", "partType", "0700", "partStartLba", 266240, "partSectors", 1830879]},
+
+		{"operation":	"fat",
+		"flags":		["input", "$ARG1", "operation", "mkfs"],
+		"extraflags":	["volumelabel", "OXIZEOS"]},
+
+		{"operation":	"fat",
+		"flags":		["input", "$ARG1", "operation", "mkdir"],
+		"extraflags":	["path", "/EFI"]},
+
+		{"operation":	"fat",
+		"flags":		["input", "$ARG1", "operation", "mkdir"],
+		"extraflags":	["path", "/EFI/BOOT"]},
+
+		{"operation":	"fat",
+		"flags":		["input", "$ARG1", "operation", "mkdir"],
+		"extraflags":	["path", "/EFI/OxizeOS"]},
+
+		{"operation": 	"fat",
+		"flags":		["input", "$ARG1", "operation", "diskcpy"],
+		"extraflags":	["hostPath", "output/tskschl.exe", "diskPath", "/EFI/OxizeOS/tskschl.exe"]},
+
+		{"operation":	"fat",
+		"flags":		["input", "$ARG1", "operation", "diskcpy"],
+		"extraflags":	["hostPath", "lib/Limine/Limine.efi", "diskPath", "/EFI/BOOT/BOOTX64.EFI"]},
+
+		{"operation":	"fat",
+		"flags":		["input", "$ARG1", "operation", "diskcpy"],
+		"extraflags":	["hostPath", "lib/Limine/limine.conf", "diskPath", "/limine.conf"]}
+	]
+}
