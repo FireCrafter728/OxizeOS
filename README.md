@@ -1,10 +1,10 @@
 # OxizeOS
 
 # Sections
-- (About)[#about]
-- (Building)[#building]
-- (Dependencies)[#dependencies]
-- (Others)[#others]
+- [About](#about)
+- [Building](#building)
+- [Dependencies](#dependencies)
+- [Others](#others)
 
 ## About
 **OxizeOS** is an OS that is currently under developement, running in `UEFI`
