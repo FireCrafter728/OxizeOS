@@ -220,7 +220,7 @@ m_uint32_t FAT::ReadFATEntry(m_uint32_t cluster)
     {
         if (!ReadFAT(sectorStart))
         {
-            fprintf(stderr, "[FAT32] [ERROR]: Failed to read FAT sector %lu\n", sectorStart);
+            fprintf(stderr, "[FAT32] [ERROR]: Failed to read FAT sector %u\n", sectorStart);
             return 0xFFFFFFFF;
         }
         data->FatCacheSector = sectorStart;
@@ -243,7 +243,7 @@ bool FAT::WriteFATEntry(m_uint32_t cluster, m_uint32_t value)
     {
         if (!ReadFAT(sectorStart))
         {
-            fprintf(stderr, "[FAT32] [ERROR]: Failed to read FAT sector %lu\n", sectorStart);
+            fprintf(stderr, "[FAT32] [ERROR]: Failed to read FAT sector %u\n", sectorStart);
             return false;
         }
         data->FatCacheSector = sectorStart;
@@ -282,19 +282,19 @@ bool FAT::AssembleLFN(LFNEntry *entries, int count, char *outName)
         for (int j = 0; j < 5; j++)
         {
             if (entries[i].Entry1[j] == 0x0000)
-                goto done; // I DON'T CARE IF YOU JUDGE ME ABOUT THIS
+                goto done;
             outName[pos++] = (char)entries[i].Entry1[j];
         }
         for (int j = 0; j < 6; j++)
         {
             if (entries[i].Entry2[j] == 0x0000)
-                goto done; // I DON'T CARE IF YOU JUDGE ME ABOUT THIS
+                goto done;
             outName[pos++] = (char)entries[i].Entry2[j];
         }
         for (int j = 0; j < 2; j++)
         {
             if (entries[i].Entry3[j] == 0x0000)
-                goto done; // I DON'T CARE IF YOU JUDGE ME ABOUT THIS
+                goto done;
             outName[pos++] = (char)entries[i].Entry3[j];
         }
     }

@@ -445,8 +445,8 @@ int main(int argc, char **argv)
             delete (fat);
             return 23;
         }
-        uint32_t fileSize = ftell(hostFile);
-        if (fileSize == -1UL)
+        int64_t fileSize = ftell(hostFile);
+        if (fileSize == -1L)
         {
             printf("[FAT32-MAIN] [ERROR]: Failed to get file %s position", operation.args[0]);
             fclose(hostFile);

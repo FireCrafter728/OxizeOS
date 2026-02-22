@@ -1,10 +1,13 @@
 include scripts/config.mk
 
-.PHONY: all tskschl tools tools-fat tools-image toolchain image dir clean
+.PHONY: all bootmgr tskschl tools tools-fat tools-image toolchain image dir clean
 
-all: dir tskschl tools image
+all: dir bootmgr tskschl tools image
 
-include scripts/toolchain.mk
+include scripts/toolchain-gcc.mk
+
+bootmgr:
+	$(MAKE) -C $(SRC)/BootManager
 
 tskschl:
 	$(MAKE) -C $(SRC)/tskschl

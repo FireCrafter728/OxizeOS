@@ -3,6 +3,9 @@
 ## `<Date> <Version>: <Title>(<status>)`
 
 ## 2026-01-07 1.0.0.0001: Initial Update
-- Uses the **Image** tool from `OxizeOS-Deprecated` repo together with the `FAT` tool, modified for GPT
-- Uses Limine bootloader with the limine boot protocol to boot tskschl.exe
-- tskschl.exe currently just makes the screen cyan using the GOP Framebuffer
+
+## 2026-02-22 1.0.1.0002: Minimal bootloader
+
+- Implemented a minimal UEFI Bootloader (BootMgr.exe) that does not support other boot protocols, such as multiboot2
+- Implemented an example task scheduler (tskschl.exe) that for now clears the UEFI GOP Framebuffer
+- Introduced a new dependency for scripts: python 3

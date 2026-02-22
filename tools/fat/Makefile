@@ -9,9 +9,9 @@ OBJECS_CPP=$(patsubst %.cpp, $(OBJ)/tools/fat/%.obj, $(SOURCES_CPP))
 fat_build: $(OUTPUT)/fat
 $(OUTPUT)/fat: $(OBJECS_CPP)
 	$(LDXX) $(LINKFLAGS) -o $@ $^
-	echo "\033[92mCreated -> tools/fat\033[0m"
+	printf "\033[92mCreated -> tools/fat\033[0m\n"
 
 $(OBJ)/tools/fat/%.obj: %.cpp
 	mkdir -p $(@D)
 	$(CXX) $(CXXFLAGS) -c -o $@ $<
-	echo "\033[36mCompiled -> $<\033[0m"
+	printf "\033[36mCompiled -> $<\033[0m\n"

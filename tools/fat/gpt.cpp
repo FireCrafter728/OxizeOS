@@ -2,7 +2,8 @@
 
 using namespace FAT32::GPT;
 
-constexpr const GUID ESP_GUID = {0xC12A7328, 0xF81F, 0x11D2, {0xBA, 0x4B, 0x00, 0xA0, 0xC9, 0x3E, 0xC9, 0x3B}};
+constexpr GUID ESP_GUID = {0xC12A7328, 0xF81F, 0x11D2, {0xBA, 0x4B, 0x00, 0xA0, 0xC9, 0x3E, 0xC9, 0x3B}};
+constexpr GUID BIOS_GUID = {0x21686148, 0x6449, 0x6E6F, {0x74, 0x4E, 0x65, 0x65, 0x64, 0x45, 0x46, 0x49}};
 
 bool GPT::Initialize(DISK* disk, GPTDesc* desc, int Partition)
 {
@@ -19,7 +20,7 @@ bool GPT::Initialize(DISK* disk, GPTDesc* desc, int Partition)
 	{
 		for(int i = 0; i < GPT_MAX_PARTITIONS; i++)
 		{
-			if(memcmp(&desc->partitions[i].PartType, &ESP_GUID, sizeof(GUID)) == 0)
+			if(memcmp(&desc->partitions[i].PartType, &ESP_GUID, sizeof(GUID)) == 0 || memcmp(&desc->partitions[i].PartType, &BIOS_GUID, sizeof(GUID)) == 0)
 			{
 				this->bootPartitionStart = desc->partitions[i].StartLBA;
 				this->CurrentPartition = i + 1;
