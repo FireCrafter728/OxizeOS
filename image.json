@@ -36,10 +36,6 @@
 
 		{"operation":	"fat",
 		"flags":		["input", "$ARG1", "operation", "diskcpy"],
-		"extraflags":	["hostPath", "test.txt", "diskPath", "\\EFI\\OxizeOS\\test.txt"]},
-
-		{"operation":	"fat",
-		"flags":		["input", "$ARG1", "operation", "diskcpy"],
 		"extraflags":	["hostPath", "output/tskschl.exe", "diskPath", "\\EFI\\OxizeOS\\tskschl.exe"]}
 	]
 }

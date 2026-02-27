@@ -57,8 +57,8 @@ struct KernelMemoryLayout
 	uintptr_t TskSchlPhysAddr;
 	uintptr_t TskSchlLoadSize;
 	size_t KrnlMemRegionSize;
-	size_t PageTableOffset;
 	uintptr_t regionStartPhys;
+	uintptr_t NextPageTableFreePtr;
 };
 
 struct SystemTable

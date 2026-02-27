@@ -48,12 +48,13 @@ toolchain_gcc_i686: $(TOOLCHAIN_PREFIX_I686)/bin/$(I686_TARGET)-gcc
 $(TOOLCHAIN_PREFIX_X64)/bin/$(X64_TARGET)-gcc: $(TOOLCHAIN_PREFIX_X64)/bin/$(X64_TARGET)-ld $(GCC_SRC).tar.gz
 	cd $(GCC_BUILD_X64) && CFLAGS= ASMFLAGS= CC= CXX= CXXFLAGS= LD= ASM= LINKFLAGS= LIBS= ../gcc-$(GCC_VERSION)/configure \
 		--prefix="$(TOOLCHAIN_PREFIX_X64)" 			\
-		--target=$(X64_TARGET)							\
+		--target=$(X64_TARGET)						\
 		--disable-nls								\
 		--enable-languages=c,c++					\
 		--without-headers							\
 		--with-pie									\
 		--enable-default-pie						\
+		--enable-initfini-array						\
 		--build=$(shell $(TOOLCHAIN)/gcc-$(GCC_VERSION)/config.guess) \
 		--host=$(shell $(TOOLCHAIN)/gcc-$(GCC_VERSION)/config.guess) \
 		
@@ -62,13 +63,14 @@ $(TOOLCHAIN_PREFIX_X64)/bin/$(X64_TARGET)-gcc: $(TOOLCHAIN_PREFIX_X64)/bin/$(X64
 
 $(TOOLCHAIN_PREFIX_I686)/bin/$(I686_TARGET)-gcc: $(TOOLCHAIN_PREFIX_I686)/bin/$(I686_TARGET)-ld $(GCC_SRC).tar.gz
 	cd $(GCC_BUILD_I686) && CFLAGS= ASMFLAGS= CC= CXX= CXXFLAGS= LD= ASM= LINKFLAGS= LIBS= ../gcc-$(GCC_VERSION)/configure \
-		--prefix="$(TOOLCHAIN_PREFIX_I686)" 			\
-		--target=$(I686_TARGET)							\
+		--prefix="$(TOOLCHAIN_PREFIX_I686)" 		\
+		--target=$(I686_TARGET)						\
 		--disable-nls								\
 		--enable-languages=c,c++					\
 		--without-headers							\
 		--with-pie									\
 		--enable-default-pie						\
+		--enable-initfini-array						\
 		--build=$(shell $(TOOLCHAIN)/gcc-$(GCC_VERSION)/config.guess) \
 		--host=$(shell $(TOOLCHAIN)/gcc-$(GCC_VERSION)/config.guess) \
 		

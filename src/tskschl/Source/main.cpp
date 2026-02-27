@@ -8,11 +8,22 @@ const uint16_t GDT_32BIT_RING0_DATASEG = 0x30;
 const uint16_t GDT_32BIT_RING3_CODESEG = 0x38;
 const uint16_t GDT_32BIT_RING3_DATASEG = 0x40;
 
+class Test
+{
+public:
+	Test() { val = 0xAA55; }
+	uint32_t val;
+};
+
+Test test;
+
 extern "C" void main(SystemTable* System)
 {
+	printf("test val: 0x%llX\r\n", test.val);
+
 	TskSchl::GDT::GDT gdt;
 
-	TskSchl::GDT::GDT_Entry entries[] = {
+	TskSchl::GDT::GDT_Entry entries[] = {	
 		// NULL Entry, offset 0x00
 		GDT_ENTRY(0, 0, 0, 0),
 

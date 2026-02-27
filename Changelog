@@ -1,6 +1,6 @@
 # OxizeOS Changelog
 
-## `<Date> <Version>: <Title>(<status>)`
+## `<Date> <Version>: <Title>`
 
 ## 2026-01-07 1.0.0.0001: Initial Update
 
@@ -9,3 +9,13 @@
 - Implemented a minimal UEFI Bootloader (BootMgr.exe) that does not support other boot protocols, such as multiboot2
 - Implemented an example task scheduler (tskschl.exe) that for now clears the UEFI GOP Framebuffer
 - Introduced a new dependency for scripts: python 3
+
+## 2026-02-27 1.0.1.0003: Paging Driver Update
+
+- Fixed a problem where the `image.json` contained an entry to copy a non-existing file
+- Fixed a bug where gen_isrs.py was adding `#pragma once` to gen_isrs.cpp
+- Refractored some code in Boot Manager
+- Finished implementing the paging driver in the Task Scheduler
+- Introduced a new method for managing page tables: Free List
+- Added global constructor management trough the use of .init_array section in the task scheduler entry point
+- Fixed a bug where the toolchain-gcc.mk was making GCC build without it generating .init_array section in ELF files

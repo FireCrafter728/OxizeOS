@@ -38,18 +38,6 @@ EnableSSE:
 
 	xor rax, rax
 	ret
-; TestInt
-;
-; Input: None
-;
-; Output: None
-;
-; Generates a CPU Exception to test the IDT / ISRs
-global TestInt
-TestInt:
-	mov rax, 0
-	div rax
-	ret
 
 ; ExecuteKernel
 ;
@@ -66,6 +54,7 @@ TestInt:
 global ExecuteKernel
 ExecuteKernel:
 	cli
+
 	; Reload CR3
 	mov cr3, r8
 	
@@ -77,3 +66,4 @@ ExecuteKernel:
 	jmp rcx
 global ExecuteKernelEnd
 ExecuteKernelEnd:
+

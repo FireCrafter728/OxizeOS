@@ -44,8 +44,6 @@ extern "C" EFI_STATUS EFIAPI efi_main(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE* 
 	elf.SetLoadAddr(&elfHandle, sysTable->memLayout.TskSchlPhysAddr);
 	elf.SetVirtLoadAddr(&elfHandle, sysTable->memLayout.TskSchlPhysAddr - sysTableBuilder.getRegionStartAddr() + BootMgr::MapAddr);
 
-	printf("Loading to: 0x%llX\r\n", sysTable->memLayout.TskSchlPhysAddr);
-
 	elf.LoadImage(&elfHandle);
 
 	// Set the preferred GOP Framebuffer mode
@@ -74,48 +72,9 @@ extern "C" EFI_STATUS EFIAPI efi_main(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE* 
 
 	typedef void (*KrnlExec)(uintptr_t Entry, SystemTable* systemTable, uint64_t CR3, uintptr_t StackAddr);
 	KrnlExec krnl = (KrnlExec)krnlExecLoadAddr;
-	printf("krnlAddr: 0x%llX\r\n", krnl);
-	printf("Region start: 0x%llX\r\n", sysTableBuilder.getRegionStartAddr());
 	uintptr_t tskschlVirt = (elfHandle.LoadAddr + elfHandle.header.EntryOffset - elfHandle.extraOffset) - sysTableBuilder.getRegionStartAddr() + BootMgr::MapAddr;
-
-	uint16_t pml4_idx = (tskschlVirt >> 39) & 0x1FF;
-	uint16_t pdpt_idx = (tskschlVirt >> 30) & 0x1FF;
-	uint16_t pd_idx   = (tskschlVirt >> 21) & 0x1FF;
-	uint16_t pt_idx   = (tskschlVirt >> 12) & 0x1FF;
-
-	uint64_t* pml4 = reinterpret_cast<uint64_t*>(sysTable->memLayout.PageTableAddr - BootMgr::MapAddr + sysTableBuilder.getRegionStartAddr());
-
-	uint64_t pml4_entry = pml4[pml4_idx];
-	if (!(pml4_entry & BootMgr::PTE_PRESENT)) {
-	    printf("[BOOTMGR] [ERROR]: PML4 entry not present!\r\n");
-	    HaltSystem();
-	}
-
-	uint64_t* pdpt = reinterpret_cast<uint64_t*>(pml4_entry & BootMgr::PTE_PHYS_MASK);
-	uint64_t pdpt_entry = pdpt[pdpt_idx];
-	if (!(pdpt_entry & BootMgr::PTE_PRESENT)) {
-	    printf("[BOOTMGR] [ERROR]: PDPT entry not present!\r\n");
-	    HaltSystem();
-	}
-
-	uint64_t* pd = reinterpret_cast<uint64_t*>(pdpt_entry & BootMgr::PTE_PHYS_MASK);
-	uint64_t pd_entry = pd[pd_idx];
-	if (!(pd_entry & BootMgr::PTE_PRESENT)) {
-	    printf("[BOOTMGR] [ERROR]: PD entry not present!\r\n");
-	    HaltSystem();
-	}
-
-	uint64_t* pt = reinterpret_cast<uint64_t*>(pd_entry & BootMgr::PTE_PHYS_MASK);
-	uint64_t pt_entry = pt[pt_idx];
-	if (!(pt_entry & BootMgr::PTE_PRESENT)) {
-	    printf("[BOOTMGR] [ERROR]: PT entry not present!\r\n");
-	    HaltSystem();
-	}
-
-	uintptr_t physAddr = pt_entry & BootMgr::PTE_PHYS_MASK;
-	printf("Kernel entry VA 0x%llX is mapped to PA 0x%llX\r\n", tskschlVirt, physAddr);
 
 	krnl(tskschlVirt, reinterpret_cast<SystemTable*>(reinterpret_cast<uintptr_t>(sysTable) - sysTableBuilder.getRegionStartAddr() + BootMgr::MapAddr), BootMgr::MAKE_CR3(sysTableBuilder.getPageTablesPhysAddr(), 0), sysTable->memLayout.StackAddr + sysTable->memLayout.StackPageCount * 0x1000);
 	
 	return EFI_DEVICE_ERROR;
-} 
+}

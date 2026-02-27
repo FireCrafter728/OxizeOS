@@ -20,7 +20,7 @@ mode with 4-level Paging(PML4)
 
 1. You need to make sure you have all the dependencies installed on your system.
 To make sure you have them installed, view the **Dependencies** section of this readme.
-2. Then you need to build the `gcc 15.2.0` & `binutils 2.45` toolchains. to do that,
+2. Then you need to build the `gcc 15.2.0` & `binutils 2.46.0` toolchains. to do that,
 run `make toolchain`.
 3. Then you need to build the internal parts & build the image. for that, run `make`,
 and optionally the `-s` flag for cleaner output.
@@ -44,7 +44,7 @@ For this you need:
 For this you need:
 
 - To make sure the toolchain is installed correctly & working
-- Working base `GCC` & `Binutils` with **C++17** support (I recommend `GCC 9.1+`)
+- Working base `GCC` & `Binutils` with **C++23** support (I recommend `GCC 14/15` or later)
 - `cargo` installed together with `rustc`
 - tools `gdisk`, `dd`, `nasm`, `mingw-w64`
 - `python3` installed for scripts
@@ -70,7 +70,7 @@ in the script have changed
 subject to change. **It might crash, brick your system or damage internal components**
 on real hardware on poorly/not tested at all snapshots/releases. Use it at your own risk.
 We recommend using it on a **VM**, like **qemu**, **Virtual Box** or **VMware**.
-- This OS is running on **UEFI** and reccomends a chipset that has **PCIe** support(like **ICH9**),
+- This OS is running on **UEFI** and recommends a chipset that has **PCIe** support(like **ICH9**),
 **PCI** is not supported
 - This OS might have a **lack of drivers**, since they are **community-developed**,
 not by the manufacturers.

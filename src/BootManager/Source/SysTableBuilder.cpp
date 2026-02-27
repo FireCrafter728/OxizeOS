@@ -56,12 +56,12 @@ SystemTable* SysTable::BuildSystemTable(size_t TskSchlPageCount, EFI_SYSTEM_TABL
 			case EfiACPIMemoryNVS:
 			case EfiUnusableMemory:
 			case EfiReservedMemoryType:
+			case EfiMemoryMappedIO:
+			case EfiMemoryMappedIOPortSpace:
 			case EfiACPIReclaimMemory: totalMemoryPages += desc->NumberOfPages; break;
 			default: break;
 		}
 	}
-
-	printf("[BOOTMGR] [SysTableBuilder] [INFO]: Total mememory installed pages: 0x%llX, bytes: 0x%llX\r\n", totalMemoryPages, totalMemoryPages * 0x1000);
 
 	size_t ptCount = (totalMemoryPages + 511) / 512;
 	size_t pdCount = (ptCount + 511) / 512;
@@ -101,8 +101,8 @@ SystemTable* SysTable::BuildSystemTable(size_t TskSchlPageCount, EFI_SYSTEM_TABL
 
 	static uintptr_t GuardPages[5];
 
-	uint64_t* PageTables = reinterpret_cast<uint64_t*>(regionStart);
-	PageTablesPhys = reinterpret_cast<uintptr_t>(PageTables);
+	uint64_t* PageTablesAddr = reinterpret_cast<uint64_t*>(regionStart);
+	PageTablesPhys = reinterpret_cast<uintptr_t>(PageTablesAddr);
 	regionOffset += PageTableReservePages;
 	GuardPages[0] = regionOffset++;
 	uintptr_t StackAddr = regionStart + regionOffset * 0x1000;
@@ -119,7 +119,6 @@ SystemTable* SysTable::BuildSystemTable(size_t TskSchlPageCount, EFI_SYSTEM_TABL
 	GuardPages[4] = regionOffset++;
 	uintptr_t TskSchlLoadAddr = regionStart + regionOffset * 0x1000;
 	regionOffset += TskSchlPageCount;
-	printf("loadAddr: 0x%llX\r\n", TskSchlLoadAddr - regionStart);
 
 	// Requery the UEFI Memory map to reflect the latest AllocatePages modification
 
@@ -196,12 +195,10 @@ SystemTable* SysTable::BuildSystemTable(size_t TskSchlPageCount, EFI_SYSTEM_TABL
 		uintptr_t allocEnd = regionStart + totalBufferSize * 0x1000;
 		if(desc->Type == EfiLoaderData && descStart < allocEnd && regionStart < descEnd && !remapped) {
 			if(regionStart <= descStart && allocEnd >= descEnd) {
-				printf("remapping, case 1\r\n");
 				convType = MEMTYPE_SOFTWARE_RESERVED;
 				remapped = true;
 			}
 			else if(regionStart <= descStart) {
-				printf("remapping, case 2\r\n");
 				descStart = allocEnd;
 				MemoryRegion* newRegion = &regions[regionCount++];
 				newRegion->phys = regionStart;
@@ -217,7 +214,6 @@ SystemTable* SysTable::BuildSystemTable(size_t TskSchlPageCount, EFI_SYSTEM_TABL
 
 				continue;
 			} else if(allocEnd >= descEnd) {
-				printf("remapping, case 3\r\n");
 				descEnd = regionStart;
 				MemoryRegion* newRegion = &regions[regionCount++];
 				newRegion->phys = descStart;
@@ -232,7 +228,6 @@ SystemTable* SysTable::BuildSystemTable(size_t TskSchlPageCount, EFI_SYSTEM_TABL
 				lastRegion = nullptr;
 				continue;
 			} else {
-				printf("remapping, case 4\r\n");
 				MemoryRegion* newRegion = &regions[regionCount++];
 
 				newRegion->phys = descStart;
@@ -267,12 +262,6 @@ SystemTable* SysTable::BuildSystemTable(size_t TskSchlPageCount, EFI_SYSTEM_TABL
 			newRegion->type = convType;
 			lastRegion = newRegion;
 		}
-	}
-
-	for(size_t i = 0; i < regionCount; i++)
-	{
-		MemoryRegion region = regions[i];
-		printf("Memory region %llu: start=0x%llX, length=0x%llX, type=%llu\r\n", i, region.phys, region.length, region.type);
 	}
 
 	// Query the GOP Framebuffer
@@ -363,85 +352,76 @@ SystemTable* SysTable::BuildSystemTable(size_t TskSchlPageCount, EFI_SYSTEM_TABL
 		}
 	}
 
-	uintptr_t OffsetInPageTables = 0x1000;
+	uint64_t* PageTables = reinterpret_cast<uint64_t*>(PageTablesAddr);
 	// Setup page tables to map out the entire Software Reserved(kernel) region
-	for(uintptr_t Addr = MapAddr; Addr < MapAddr + regionOffset * 0x1000; Addr += 0x1000)
-	{
-		for(size_t i = 0; i < sizeof(GuardPages) / sizeof(GuardPages[0]); i++) if(Addr - MapAddr == GuardPages[i] * 0x1000) continue;
-		uint16_t pml4_idx = (Addr >> 39) & 0x1FF;
-		uint16_t pdpt_idx = (Addr >> 30) & 0x1FF;
-		uint16_t pd_idx = (Addr >> 21) & 0x1FF;
-		uint16_t pt_idx = (Addr >> 12) & 0x1FF;
 
-		// Get PDPT
-		uint64_t* pml4 = PageTables;
-		uint64_t* pdpt_entry = &pml4[pml4_idx];
+	// Setup the free list for O(1) access of the page tables
+
+	struct PageTableNode {
+		PageTableNode* next;
+	};
+
+	PageTableNode* freeListHead = reinterpret_cast<PageTableNode*>(PageTables + 512);
+	PageTableNode* node = freeListHead;
+
+	for(size_t i = 1; i < PageTableReservePages; i++) {
+		node->next = reinterpret_cast<PageTableNode*>(PageTables + i * 512);
+		node = node->next;
+	}
+
+	node->next = nullptr;
+
+	auto allocate_page_table = [&]() -> uint64_t* {
+		PageTableNode* page = freeListHead;
+		freeListHead = freeListHead->next;
+		memset(page, 0, 0x1000);
+		return reinterpret_cast<uint64_t*>(page);
+	};
+	
+	// Setup a lambda for cleaner code
+
+	auto map_page = [&](uint64_t* PML4, uintptr_t phys, uintptr_t virt) {
+		const uint16_t pml4_idx = (virt >> 39) & 0x1FF;
+		const uint16_t pdpt_idx = (virt >> 30) & 0x1FF;
+		const uint16_t pd_idx = (virt >> 21) & 0x1FF;
+		const uint16_t pt_idx = (virt >> 12) & 0x1FF;
+
+		uint64_t* pdpt_entry = &PML4[pml4_idx];
 		if(!(*pdpt_entry & PTE_PRESENT)) {
-			// Entry doesn't exist, create it
-			*pdpt_entry = MAKE_PTE(reinterpret_cast<uintptr_t>(PageTables) + OffsetInPageTables, PTE_PRESENT | PTE_RW);
-			OffsetInPageTables += 0x1000;
-			memset((void*)(*pdpt_entry & PTE_PHYS_MASK), 0, 0x1000);
+			uint64_t* new_pdpt = allocate_page_table();
+			*pdpt_entry = MAKE_PTE(reinterpret_cast<uintptr_t>(new_pdpt), PTE_PRESENT | PTE_RW);
 		}
 		uint64_t* pdpt = reinterpret_cast<uint64_t*>(*pdpt_entry & PTE_PHYS_MASK);
 
-		// Get PD
 		uint64_t* pd_entry = &pdpt[pdpt_idx];
 		if(!(*pd_entry & PTE_PRESENT)) {
-			*pd_entry = MAKE_PTE(reinterpret_cast<uintptr_t>(PageTables) + OffsetInPageTables, PTE_PRESENT | PTE_RW);
-			OffsetInPageTables += 0x1000;
-			memset((void*)(*pd_entry & PTE_PHYS_MASK), 0, 0x1000);
+			uint64_t* new_pd = allocate_page_table();
+			*pd_entry = MAKE_PTE(reinterpret_cast<uintptr_t>(new_pd), PTE_PRESENT | PTE_RW);
 		}
+
 		uint64_t* pd = reinterpret_cast<uint64_t*>(*pd_entry & PTE_PHYS_MASK);
 
-		// Get PT
 		uint64_t* pt_entry = &pd[pd_idx];
 		if(!(*pt_entry & PTE_PRESENT)) {
-			*pt_entry = MAKE_PTE(reinterpret_cast<uintptr_t>(PageTables) + OffsetInPageTables, PTE_PRESENT | PTE_RW);
-			OffsetInPageTables += 0x1000;
-			memset((void*)(*pt_entry & PTE_PHYS_MASK), 0, 0x1000);
+			uint64_t* new_pt = allocate_page_table();
+			*pt_entry = MAKE_PTE(reinterpret_cast<uintptr_t>(new_pt), PTE_PRESENT | PTE_RW);
 		}
+
 		uint64_t* pt = reinterpret_cast<uint64_t*>(*pt_entry & PTE_PHYS_MASK);
 
-		// Create page
-		uint64_t* page_entry = &pt[pt_idx];
-		*page_entry = MAKE_PTE(regionStart + (Addr - MapAddr), PTE_PRESENT | PTE_RW);
+		pt[pt_idx] = MAKE_PTE(phys, PTE_PRESENT | PTE_RW);
+	};
+
+	// Map entire kernel memory region starting from 0xFFFF800000000000
+
+	for(size_t i = 0; i < totalBufferSize; i++) {
+		for(size_t j = 0; j < sizeof(GuardPages) / sizeof(GuardPages[0]); j++) if((MapAddr + i * 0x1000) - MapAddr == GuardPages[j] * 0x1000) continue;
+		map_page(PageTables, regionStart + i * 0x1000, MapAddr + i * 0x1000);
 	}
 
-	// Create one extra entry to identity-map first page of data area to be able to execute the task scheduler
+	// Map an extra page for the CR3 switch
 
-	uint16_t pml4_idx = (DataRegionAddr >> 39) & 0x1FF;
-	uint16_t pdpt_idx = (DataRegionAddr >> 30) & 0x1FF;
-	uint16_t pd_idx = (DataRegionAddr >> 21) & 0x1FF;
-	uint16_t pt_idx = (DataRegionAddr >> 12) & 0x1FF;
-	// Get PDPT
-	uint64_t* pml4 = PageTables;
-	uint64_t* pdpt_entry = &pml4[pml4_idx];
-	if(!(*pdpt_entry & PTE_PRESENT)) {
-		// Entry doesn't exist, create it
-		*pdpt_entry = MAKE_PTE(reinterpret_cast<uintptr_t>(PageTables) + OffsetInPageTables, PTE_PRESENT | PTE_RW);
-		OffsetInPageTables += 0x1000;
-		memset((void*)(*pdpt_entry & PTE_PHYS_MASK), 0, 0x1000);
-	}
-	uint64_t* pdpt = reinterpret_cast<uint64_t*>(*pdpt_entry & PTE_PHYS_MASK);
-	// Get PD
-	uint64_t* pd_entry = &pdpt[pdpt_idx];
-	if(!(*pd_entry & PTE_PRESENT)) {
-		*pd_entry = MAKE_PTE(reinterpret_cast<uintptr_t>(PageTables) + OffsetInPageTables, PTE_PRESENT | PTE_RW);
-		OffsetInPageTables += 0x1000;
-		memset((void*)(*pd_entry & PTE_PHYS_MASK), 0, 0x1000);
-	}
-	uint64_t* pd = reinterpret_cast<uint64_t*>(*pd_entry & PTE_PHYS_MASK);
-	// Get PT
-	uint64_t* pt_entry = &pd[pd_idx];
-	if(!(*pt_entry & PTE_PRESENT)) {
-		*pt_entry = MAKE_PTE(reinterpret_cast<uintptr_t>(PageTables) + OffsetInPageTables, PTE_PRESENT | PTE_RW);
-		OffsetInPageTables += 0x1000;
-		memset((void*)(*pt_entry & PTE_PHYS_MASK), 0, 0x1000);
-	}
-	uint64_t* pt = reinterpret_cast<uint64_t*>(*pt_entry & PTE_PHYS_MASK);
-	// Create page
-	uint64_t* page_entry = &pt[pt_idx];
-	*page_entry = MAKE_PTE(DataRegionAddr, PTE_PRESENT | PTE_RW);
+	map_page(PageTables, DataRegionAddr, DataRegionAddr);
 
 	System->memLayout.PageTableAddr = reinterpret_cast<uintptr_t>(PageTables) - regionStart + MapAddr;
 	System->memLayout.PageTablePageCount = PageTableReservePages;
@@ -452,8 +432,8 @@ SystemTable* SysTable::BuildSystemTable(size_t TskSchlPageCount, EFI_SYSTEM_TABL
 	System->memLayout.TskSchlPhysAddr = TskSchlLoadAddr;
 	System->memLayout.TskSchlLoadSize = TskSchlPageCount * 0x1000;
 	System->memLayout.KrnlMemRegionSize = regionOffset * 0x1000;
-	System->memLayout.PageTableOffset = OffsetInPageTables;
 	System->memLayout.regionStartPhys = regionStart;
+	System->memLayout.NextPageTableFreePtr = reinterpret_cast<uintptr_t>(freeListHead);
 
 	lastStatus = EFI_SUCCESS;
 	return System;

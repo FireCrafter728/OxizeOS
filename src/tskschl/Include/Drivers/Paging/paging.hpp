@@ -2,6 +2,10 @@
 #include <stdint.hpp>
 #include <SysTable.hpp>
 
+#ifndef PACK
+#define PACK __attribute__((packed))
+#endif
+
 namespace TskSchl
 {
     namespace Paging
@@ -21,6 +25,11 @@ namespace TskSchl
 
 	    #define MAKE_PTE(Addr, flags) (((Addr) & PTE_PHYS_MASK) | (flags))
 
+        struct PACK FreeTableHeader
+        {
+            FreeTableHeader* next;
+        };
+
         class Paging
         {
         public:
@@ -28,12 +37,14 @@ namespace TskSchl
             Paging(SystemTable* System);
             void Initialize(SystemTable* System);
             void MapArea(uintptr_t Phys, uintptr_t Virt, size_t pageCount, flags_t flags);
+            void FreeArea(uintptr_t Virt, size_t pageCount);
         private:
-            SystemTable* System;
-            uintptr_t PageTablesAddr;
+            uint64_t* AllocatePage();
+            void FreePage(uintptr_t phys);
             size_t PageTablesPages;
-            uintptr_t OffsetInPageTables;
             uintptr_t regionStart;
+            uint64_t* PageTables;
+            FreeTableHeader* freeTableList;
         };
     }
 }
