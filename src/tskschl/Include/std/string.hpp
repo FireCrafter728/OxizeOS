@@ -1,6 +1,12 @@
 #pragma once
 #include <stdint.hpp>
 
-inline void* memset(void* ptr, int value, size_t num) {
-    return __builtin_memset(ptr, value, num);
+#ifndef ASMCALL
+#define ASMCALL extern "C"
+#endif
+
+ASMCALL void* memset(void* ptr, int value, size_t num);
+
+constexpr int memcmp(const void* ptr1, const void* ptr2, size_t num) {
+    return __builtin_memcmp(ptr1, ptr2, num);
 }

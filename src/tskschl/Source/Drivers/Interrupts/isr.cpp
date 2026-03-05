@@ -70,13 +70,12 @@ ASMCALL void ISR_Handler(Registers* regs)
 
     // integrated handler for exceptions
     if(intr < 32) {
-        printf("CPU Exception occured(0x%X): %s\r\n", intr, ExceptionDescs[intr]);
-        printf("Errcode: 0x%X, RIP: 0x%X\r\n", regs->errcode, regs->rip);
+        printf("[TSKSCHL] [ISR] [CRITICAL]: CPU Exception occured(0x%X): %s\r\n", intr, ExceptionDescs[intr]);
+        printf("[TSKSCHL] [ISR] [CRITICAL]: CPU Exception Errcode: 0x%X, RIP: 0x%X\r\n", regs->errcode, regs->rip);
         HaltSystem();
     }
 
-    // print a message about an unhandled interrupt and halt the system
+    // print a message about an unhandled interrupt
 
-    printf("Unhandled CPU Interrupt 0x%X\r\n", intr);
-    HaltSystem();
+    printf("[TSKSCHL] [ISR] [WARN]: Unhandled CPU Interrupt 0x%X\r\n", intr);
 }

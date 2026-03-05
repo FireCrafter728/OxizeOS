@@ -8,19 +8,12 @@ const uint16_t GDT_32BIT_RING0_DATASEG = 0x30;
 const uint16_t GDT_32BIT_RING3_CODESEG = 0x38;
 const uint16_t GDT_32BIT_RING3_DATASEG = 0x40;
 
-class Test
-{
-public:
-	Test() { val = 0xAA55; }
-	uint32_t val;
-};
 
-Test test;
+TskSchl::MMD::MMD* TskSchl::mmd;
+TskSchl::Paging::Paging* TskSchl::paging;
 
 extern "C" void main(SystemTable* System)
 {
-	printf("test val: 0x%llX\r\n", test.val);
-
 	TskSchl::GDT::GDT gdt;
 
 	TskSchl::GDT::GDT_Entry entries[] = {	
@@ -62,17 +55,64 @@ extern "C" void main(SystemTable* System)
 
 	TskSchl::Paging::Paging paging(System);
 
-	paging.MapArea(System->fb.fbBase, System->memLayout.KrnlMemRegionSize + TskSchl::MapAddr, (System->fb.currentResolution.resPitch * System->fb.currentResolution.resHeight + TskSchl::PAGE_SIZE - 1) / TskSchl::PAGE_SIZE, TskSchl::Paging::PTE_PRESENT | TskSchl::Paging::PTE_RW | TskSchl::Paging::PTE_CD);
-
-	uint32_t color = 0xFF0000FF;
-	uint32_t* fb = reinterpret_cast<uint32_t*>(System->memLayout.KrnlMemRegionSize + TskSchl::MapAddr);
-
-	for(size_t y = 0; y < System->fb.currentResolution.resHeight; y++)
-	{
-		uint8_t* row = (uint8_t*)fb + y * System->fb.currentResolution.resPitch;
-		uint32_t* row32 = (uint32_t*)row;
-		for(size_t x = 0; x < System->fb.currentResolution.resWidth; x++) row32[x] = color;
+	TskSchl::MMD::MMIO mmio;
+	if(!mmio.Initialize(TskSchl::MapAddr + System->memLayout.KrnlMemRegionSize, 0xFFFFFFFFFFFFFFFF - TskSchl::MapAddr - System->memLayout.KrnlMemRegionSize)) {
+		printf("[TSKSCHL] [ERROR]: Failed to initialize MMIO Allocator\r\n");
+		HaltSystem();
 	}
-	
+
+	TskSchl::MMD::KRNL krnl;
+	if(!krnl.Initialize(System->memLayout.DataAreaAddr)) {
+		printf("[TSKSCHL] [ERROR]: Failed to initialize KRNL Allocator\r\n");
+		HaltSystem();
+	}
+
+	TskSchl::MMD::MMD mmd;
+	if(!mmd.Initialize(&mmio, &krnl)) {
+		printf("[TSKSCHL] [ERROR]: Failed to initialize MMD\r\n");
+		HaltSystem();
+	}
+
+	TskSchl::mmd = &mmd;
+	TskSchl::paging = &paging;
+
+	TskSchl::ACPI::ACPI acpi;
+	if(!acpi.Initialize(System)) {
+		printf("[TSKSCHL] [ERROR]: Failed to initialize ACPI\r\n");
+		HaltSystem();
+	}
+
+	TskSchl::ACPI::MCFG* mcfg = acpi.GetMCFG();
+	if(!mcfg) {
+		printf("[TSKSCHL] [ERROR]: Failed to get MCFG\r\n");
+		HaltSystem();
+	}
+
+	TskSchl::PCIe::PCIe pcie;
+	if(!pcie.Initialize(mcfg)) {
+		printf("[TSKSCHL] [ERROR]: Failed to initialize PCIe\r\n");
+		HaltSystem();
+	}
+
+	TskSchl::PCIe::DeviceInfo filters = {}, device;
+	filters.VendorID = filters.DeviceID = PCIE_ANY16;
+	filters.progIF = 0x01;
+	filters.subClass = 0x06;
+	filters.classCode = 0x01;
+
+	if(!pcie.LocateDevice(&filters, &device)) {
+		printf("[TSKSCHL] [ERROR]: Failed to locate SATA IntelAHCI Device\r\n");
+		HaltSystem();
+	}
+
+	printf("SATA IntelAHCI Device properties:\r\n");
+	printf("VendorID: 0x%X, DeviceID: 0x%X\r\n", device.VendorID, device.DeviceID);
+	printf("bus: 0x%X, device: 0x%X\r\n\r\n", device.Bus, device.Device);
+	for(size_t i = 0; i < 6; i++)
+	{
+		if(device.BARs[i].BarAddr == 0) continue; // Either non-existent BAR or a 64-bit extension
+		printf("PCIe BAR Index %d: Type: %d, Arch: %d, Size: 0x%llX, Address: 0x%llX\r\n", i, device.BARs[i].BarType, device.BARs[i].BarArch, device.BARs[i].BarLength, device.BARs[i].BarAddr);
+	}
+
 	HaltSystem();
 }

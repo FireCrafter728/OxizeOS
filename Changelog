@@ -19,3 +19,12 @@
 - Introduced a new method for managing page tables: Free List
 - Added global constructor management trough the use of .init_array section in the task scheduler entry point
 - Fixed a bug where the toolchain-gcc.mk was making GCC build without it generating .init_array section in ELF files
+
+## date 1.0.1.0004: PCIe Driver Implementation
+
+- Fixed an inefficiency where the task scheduler was being generated with debug symbols, inflating the executable size and compile times
+- Made the target `toolchain` inside `srcipts/toolchain-gcc.mk` no longer compile the i686 targets by default, because currently they're not supported in the OS and not used
+- Implemented an ACPI 2.0+ Driver that currently only parses the XSDT for tables, and currently only returns the MCFG Table
+- Implemented an extensive PCIe Driver with support for all 256 busses, multi-function devices, BAR handling, PCI-PCI Bridge handling, etc.
+- Cleaned up, `main.cpp`, added code to test the PCIe driver by finding a SATA IntelAHCI device and printing out it's data
+- Updated the `run` script by extending the qemu script to expose the disk as a SATA IntelAHCI device instead of the legacy ATA(IDE) device

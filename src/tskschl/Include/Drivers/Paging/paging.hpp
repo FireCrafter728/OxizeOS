@@ -6,21 +6,30 @@
 #define PACK __attribute__((packed))
 #endif
 
+#define PTE_PRESENT     TskSchl::Paging::PRESENT
+#define PTE_RW          TskSchl::Paging::RW
+#define PTE_USER        TskSchl::Paging::USER
+#define PTE_WC          TskSchl::Paging::WC
+#define PTE_CD          TskSchl::Paging::CD
+#define PTE_ACCESSED    TskSchl::Paging::ACCESSED
+#define PTE_NX          TskSchl::Paging::NX
+#define PTE_PHYS_MASK   TskSchl::Paging::PHYS_MASK
+
 namespace TskSchl
 {
     namespace Paging
     {
         enum PTE : uint64_t
 	    {
-	    	PTE_PRESENT = (1ULL << 0),
-	    	PTE_RW = (1ULL << 1ULL),
-	    	PTE_USER = (1ULL << 2),
-	    	PTE_WC = (1ULL << 3),
-	    	PTE_CD = (1ULL << 4),
-	    	PTE_ACCESSED = (1ULL << 5),
-	    	PTE_NX = (1ULL << 63),
+	    	PRESENT = (1ULL << 0),
+	    	RW = (1ULL << 1ULL),
+	    	USER = (1ULL << 2),
+	    	WC = (1ULL << 3),
+	    	CD = (1ULL << 4),
+	    	ACCESSED = (1ULL << 5),
+	    	NX = (1ULL << 63),
 
-	    	PTE_PHYS_MASK = 0x000FFFFFFFFFF000,
+	    	PHYS_MASK = 0x000FFFFFFFFFF000,
 	    };
 
 	    #define MAKE_PTE(Addr, flags) (((Addr) & PTE_PHYS_MASK) | (flags))

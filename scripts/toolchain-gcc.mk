@@ -6,7 +6,7 @@ BINUTILS_SRC = $(TOOLCHAIN)/binutils-$(BINUTILS_VERSION)
 BINUTILS_BUILD_X64 = $(TOOLCHAIN)/binutils-build-$(BINUTILS_VERSION)-X64
 BINUTILS_BUILD_I686 = $(TOOLCHAIN)/binutils-build-$(BINUTILS_VERSION)-I686
 
-toolchain: toolchain_binutils_x64 toolchain_binutils_i686 toolchain_gcc_x64 toolchain_gcc_i686
+toolchain: toolchain_binutils_x64 toolchain_gcc_x64
 
 toolchain_binutils_x64: $(TOOLCHAIN_PREFIX_X64)/bin/$(X64_TARGET)-ld
 toolchain_binutils_i686: $(TOOLCHAIN_PREFIX_I686)/bin/$(I686_TARGET)-ld

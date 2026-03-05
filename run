@@ -63,7 +63,12 @@ elif [[ "$OPERATION" == "recreate" ]]; then
     create_vm
     exit 0
 elif [[ "$OPERATION" == "qemu" ]]; then
-    qemu-system-x86_64 -drive format=raw,file=output/OxizeOS.hdd -bios lib/UEFI/OVMF/OVMF.fd -net none -machine q35 -m 1024M -vga std -display sdl -debugcon file:logfile.log -monitor stdio
+    qemu-system-x86_64 -drive if=none,format=raw,file=$DISK_PATH,id=disk0 \
+                       -device ahci,id=ahci \
+                       -device ide-hd,bus=ahci.0,drive=disk0 \
+                       -bios lib/UEFI/OVMF/OVMF.fd \
+                       -net none -machine q35 -m 1024M -vga std -display sdl \
+                       -debugcon file:logfile.log -monitor stdio
     exit 0
 fi
 
