@@ -2,9 +2,6 @@
 
 using namespace TskSchl::Paging;
 
-#define GetPhys(Virt) ((Virt) - MapAddr + this->regionStart)
-#define GetVirt(Phys) ((Phys) + MapAddr - this->regionStart)
-
 Paging::Paging(SystemTable* System)
 {
     Initialize(System);
@@ -39,35 +36,35 @@ void Paging::MapArea(uintptr_t Phys, uintptr_t Virt, size_t pageCount, flags_t f
         const uint16_t pt_idx = (currVirt >> 12) & 0x1FF;
 
         // retrieve PDPT Table from PML4 table
-        uint64_t* pml4 = this->PageTables;
-        uint64_t* pdpt_entry = &pml4[pml4_idx];
+        volatile uint64_t* pml4 = this->PageTables;
+        volatile uint64_t* pdpt_entry = &pml4[pml4_idx];
         if(!(*pdpt_entry & PTE_PRESENT)) {
             // Entry doesn't exist, create it
-            uint64_t* pdpt_addr = AllocatePage();
+            volatile uint64_t* pdpt_addr = AllocatePage();
             *pdpt_entry = MAKE_PTE(reinterpret_cast<uintptr_t>(pdpt_addr), PTE_PRESENT | PTE_RW);
         }
-        uint64_t* pdpt = reinterpret_cast<uint64_t*>(GetVirt(*pdpt_entry & PTE_PHYS_MASK));
+        volatile uint64_t* pdpt = reinterpret_cast<volatile uint64_t*>(GetVirt(*pdpt_entry & PTE_PHYS_MASK));
  
         // retrieve PD Table from PDPT table
-        uint64_t* pd_entry = &pdpt[pdpt_idx];
+        volatile uint64_t* pd_entry = &pdpt[pdpt_idx];
         if(!(*pd_entry & PTE_PRESENT)) {
-            uint64_t* pd_addr = AllocatePage();
+            volatile uint64_t* pd_addr = AllocatePage();
             *pd_entry = MAKE_PTE(reinterpret_cast<uintptr_t>(pd_addr), PTE_PRESENT | PTE_RW);
         }
-        uint64_t* pd = reinterpret_cast<uint64_t*>(GetVirt(*pd_entry & PTE_PHYS_MASK));
+        volatile uint64_t* pd = reinterpret_cast<volatile uint64_t*>(GetVirt(*pd_entry & PTE_PHYS_MASK));
 
         // retrieve PT Table from PD table
-        uint64_t* pt_entry = &pd[pd_idx];
+        volatile uint64_t* pt_entry = &pd[pd_idx];
         if(!(*pt_entry & PTE_PRESENT)) {
-            uint64_t* pt_addr = AllocatePage();
+            volatile uint64_t* pt_addr = AllocatePage();
             *pt_entry = MAKE_PTE(reinterpret_cast<uintptr_t>(pt_addr), PTE_PRESENT | PTE_RW);
         }
-        uint64_t* pt = reinterpret_cast<uint64_t*>(GetVirt(*pt_entry & PTE_PHYS_MASK));
+        volatile uint64_t* pt = reinterpret_cast<volatile uint64_t*>(GetVirt(*pt_entry & PTE_PHYS_MASK));
 
         // Create a new entry with respective flags in PT table
-        uint64_t* page_entry = &pt[pt_idx];
+        volatile uint64_t* page_entry = &pt[pt_idx];
         *page_entry = MAKE_PTE(currPhys, flags);
-
+        __asm__ volatile("" ::: "memory");
         InvalidatePage(currVirt);
     }
 }
@@ -165,4 +162,14 @@ void Paging::FreePage(uintptr_t phys)
 
     vpage->next = reinterpret_cast<FreeTableHeader*>(freeTableList);
     freeTableList = reinterpret_cast<FreeTableHeader*>(phys);
+}
+
+uintptr_t Paging::GetPhys(uintptr_t Virt)
+{
+    return Virt - MapAddr + this->regionStart;
+}
+
+uintptr_t Paging::GetVirt(uintptr_t Phys)
+{
+    return Phys + MapAddr - this->regionStart;
 }

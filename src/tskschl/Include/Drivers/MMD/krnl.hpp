@@ -31,7 +31,7 @@ namespace TskSchl
             KRNL() = default;
             KRNL(uintptr_t RegionStart);
             bool Initialize(uintptr_t RegionStart);
-            void* Allocate(size_t blocks);
+            void* Allocate(size_t blocks, flags_t flags = PTE_PRESENT | PTE_RW);
             void Free(void* ptr, size_t blocks);
         private:
             KRNL_ListEntry* freeListStart;

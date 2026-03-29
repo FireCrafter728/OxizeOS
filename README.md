@@ -19,12 +19,12 @@ mode with 4-level Paging(PML4)
 ## Building
 
 1. You need to make sure you have all the dependencies installed on your system.
-To make sure you have them installed, view the **Dependencies** section of this readme.
+To make sure you have them installed, view the **Dependencies** section of this README.
 2. Then you need to build the `gcc 15.2.0` & `binutils 2.46.0` toolchains. to do that,
 run `make toolchain`.
 3. Then you need to build the internal parts & build the image. for that, run `make`,
 and optionally the `-s` flag for cleaner output.
-4. Then you run `./run` to test the OS. For that, you need to make sure you have
+4. Then you need to run `./run` to test the OS(or `./run qemu` to test with **QEMU** instead of **VirtualBox**). For that, you need to make sure you have
 **Virtual Box** or **qemu** installed with it's tools avaiable in the system `PATH`.
 
 ## Dependencies
@@ -70,7 +70,7 @@ in the script have changed
 subject to change. **It might crash, brick your system or damage internal components**
 on real hardware on poorly/not tested at all snapshots/releases. Use it at your own risk.
 We recommend using it on a **VM**, like **qemu**, **Virtual Box** or **VMware**.
-- This OS is running on **UEFI** and recommends a chipset that has **PCIe** support(like **ICH9**),
+- This OS is running on **UEFI** and needs a chipset that has **PCIe** support(like **ICH9**),
 **PCI** is not supported
 - This OS might have a **lack of drivers**, since they are **community-developed**,
 not by the manufacturers.

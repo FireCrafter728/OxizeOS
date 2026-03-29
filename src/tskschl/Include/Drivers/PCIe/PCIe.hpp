@@ -39,6 +39,11 @@ namespace TskSchl
 {
     namespace PCIe
     {
+        constexpr uint16_t ConfigCommandIOEnable = (1U << 0);
+        constexpr uint16_t ConfigCommandMMIOEnable = (1U << 1);
+        constexpr uint16_t ConfigCommandBusMasterEnable = (1U << 2);
+        constexpr uint16_t ConfigCommandInterruptDisable = (1U << 10);
+
         struct PACK ConfigBlock
         {
             uint16_t VendorID, DeviceID;
@@ -112,7 +117,7 @@ namespace TskSchl
             ACPI::MCFG* mcfg;
             ECAMSegment* Segments;
             size_t BussesImplemented;
-            static constexpr DeviceInfo PCIBridgeFilter = {nullptr, nullptr, 0, 0, PCIE_ANY16, PCIE_ANY16, 0x00, 0x04, 0x06, {0}};
+            static constexpr DeviceInfo PCIBridgeFilter = {nullptr, nullptr, 0, 0, PCIE_ANY16, PCIE_ANY16, 0x00, 0x04, 0x06, {}};
         };
     }
 }

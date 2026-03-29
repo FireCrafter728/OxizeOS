@@ -20,7 +20,7 @@ bool MMD::Initialize(MMIO* mmio, KRNL* krnl)
     return true;
 }
 
-void* MMD::malloc(size_t blocks, MemoryTypes mt)
+void* MMD::malloc(size_t blocks, MemoryTypes mt, flags_t flags)
 {
     switch(mt)
     {
@@ -30,6 +30,7 @@ void* MMD::malloc(size_t blocks, MemoryTypes mt)
         }
         case MT_KRNL:
         {
+            if(flags != 0) return this->krnl->Allocate(blocks, flags);
             return this->krnl->Allocate(blocks);
         }
         default: break;

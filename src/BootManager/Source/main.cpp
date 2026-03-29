@@ -56,12 +56,6 @@ extern "C" EFI_STATUS EFIAPI efi_main(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE* 
 		HaltSystem();
 	}
 	sysTable->fb.fbBase = gop->Mode->FrameBufferBase;
-
-	uint32_t color = 0xFF000000;
-	uint32_t* fb = reinterpret_cast<uint32_t*>(sysTable->fb.fbBase);
-	for(size_t x = 0; x < sysTable->fb.currentResolution.resWidth; x++)
-		for(size_t y = 0; y < sysTable->fb.currentResolution.resHeight; y++)
-			fb[y * sysTable->fb.currentResolution.resPitch + x] = color;
 	
 	// Copy ExecuteKernel function to the start of the kernel data area
 	// mapped by both UEFI & our own page tables and execute it

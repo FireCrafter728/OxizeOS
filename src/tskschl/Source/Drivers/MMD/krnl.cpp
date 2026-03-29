@@ -33,7 +33,7 @@ bool KRNL::Initialize(uintptr_t RegionStart)
     return true;
 }
 
-void* KRNL::Allocate(size_t blocks)
+void* KRNL::Allocate(size_t blocks, flags_t flags)
 {
     if(!blocks) {
         printf("[TSKSCHL] [MMD-KRNL] [ERROR]: An attempt was made to allocate 0 blocks\r\n");
@@ -62,6 +62,8 @@ void* KRNL::Allocate(size_t blocks)
                     temp->next = nullptr;
                     temp = reinterpret_cast<KRNL_ListEntry*>(reinterpret_cast<uintptr_t>(temp) + BLOCK_SIZE);
                 }
+
+                paging->MapArea(paging->GetPhys(reinterpret_cast<uintptr_t>(runStart)), reinterpret_cast<uintptr_t>(runStart), blocks, flags);
 
                 memset(reinterpret_cast<void*>(runStart), 0, blocks * BLOCK_SIZE);
 

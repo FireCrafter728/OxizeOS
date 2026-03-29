@@ -47,6 +47,8 @@ namespace TskSchl
             void Initialize(SystemTable* System);
             void MapArea(uintptr_t Phys, uintptr_t Virt, size_t pageCount, flags_t flags);
             void FreeArea(uintptr_t Virt, size_t pageCount);
+            uintptr_t GetPhys(uintptr_t Virt);
+            uintptr_t GetVirt(uintptr_t Phys);
         private:
             uint64_t* AllocatePage();
             void FreePage(uintptr_t phys);

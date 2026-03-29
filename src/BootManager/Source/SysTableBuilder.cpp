@@ -283,12 +283,12 @@ SystemTable* SysTable::BuildSystemTable(size_t TskSchlPageCount, EFI_SYSTEM_TABL
 	// Select the highest preferred supported resolution
 
 	VideoResolution preferredResolutions[] = {
-		{1920, 1080, PIXEL_FORMAT_R8G8B8A8},
-		{1920, 1080, PIXEL_FORMAT_B8G8R8A8},
-		{1600, 900, PIXEL_FORMAT_R8G8B8A8},
-		{1600, 900, PIXEL_FORMAT_B8G8R8A8},
-		{1280, 720, PIXEL_FORMAT_R8G8B8A8},
-		{1280, 720, PIXEL_FORMAT_B8G8R8A8},
+		{1920, 1080, PIXEL_FORMAT_R8G8B8A8, 0, 0},
+		{1920, 1080, PIXEL_FORMAT_B8G8R8A8, 0, 0},
+		{1600, 900, PIXEL_FORMAT_R8G8B8A8, 0, 0},
+		{1600, 900, PIXEL_FORMAT_B8G8R8A8, 0, 0},
+		{1280, 720, PIXEL_FORMAT_R8G8B8A8, 0, 0},
+		{1280, 720, PIXEL_FORMAT_B8G8R8A8, 0, 0},
 	};
 	size_t pResCount = sizeof(preferredResolutions) / sizeof(preferredResolutions[0]);
 	
@@ -306,7 +306,7 @@ SystemTable* SysTable::BuildSystemTable(size_t TskSchlPageCount, EFI_SYSTEM_TABL
 		{
 			const VideoResolution pRes = preferredResolutions[j];
 			if(pRes.resWidth == info->HorizontalResolution && pRes.resHeight == info->VerticalResolution && info->PixelFormat == PixelBlueGreenRedReserved8BitPerColor) {
-				System->fb.currentResolution = preferredResolutions[j];
+				System->fb.currentResolution = pRes;
 				System->fb.currentResolution.gopIndex = i;
 				System->fb.currentResolution.resPitch = info->PixelsPerScanLine * 4; // Convert to pixels/scanline to bytes/scanline(32bpp)
 			}

@@ -228,7 +228,7 @@ bool ELF::LoadImage(ELF_Handle* handle)
 			return false;
 		}
 
-		if(phdr.LoadSize > phdr.SegmentSize) memset(addr + phdr.SegmentSize, 0, phdr.LoadSize - phdr.SegmentSize);
+		if(phdr.LoadSize > phdr.SegmentSize) memset(reinterpret_cast<void*>(reinterpret_cast<uintptr_t>(addr) + phdr.SegmentSize), 0, phdr.LoadSize - phdr.SegmentSize);
 	}
 
 	HandleRelocations(handle);

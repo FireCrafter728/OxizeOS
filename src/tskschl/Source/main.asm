@@ -42,9 +42,6 @@ _start:
 
 .init_done:
 
-    ; Enable interrupts after CR3 & Stack switch
-    sti
-
     call main
 
 halt:

@@ -76,6 +76,25 @@ extern "C" void main(SystemTable* System)
 	TskSchl::mmd = &mmd;
 	TskSchl::paging = &paging;
 
+	size_t framebufferSize = System->fb.currentResolution.resHeight * System->fb.currentResolution.resPitch;
+	uint8_t* framebuffer = reinterpret_cast<uint8_t*>(mmd.malloc(BLOCK_COUNT(framebufferSize), TskSchl::MMD::MT_MMIO));
+
+	if(!framebuffer) {
+		printf("[TSKSCHL] [ERROR]: Failed to allocate memory for framebuffer\r\n");
+		HaltSystem();
+	}
+
+	printf("framebuffer size: 0x%llX, framebuffer virt: 0x%llX, phys: 0x%llX, pageCount: 0x%llX\r\n", framebufferSize, framebuffer, System->fb.fbBase, BLOCK_COUNT(framebufferSize));
+
+	paging.MapArea(System->fb.fbBase, reinterpret_cast<uintptr_t>(framebuffer), BLOCK_COUNT(framebufferSize), PTE_PRESENT | PTE_RW | PTE_CD | PTE_NX);
+
+	for(size_t y = 0; y < System->fb.currentResolution.resHeight; y++)
+	{
+		uint32_t* row = reinterpret_cast<uint32_t*>(framebuffer + y * System->fb.currentResolution.resPitch);
+		for(size_t x = 0; x < System->fb.currentResolution.resWidth; x++)
+			row[x] = 0xFF0000CC;
+	}
+
 	TskSchl::ACPI::ACPI acpi;
 	if(!acpi.Initialize(System)) {
 		printf("[TSKSCHL] [ERROR]: Failed to initialize ACPI\r\n");
@@ -94,25 +113,79 @@ extern "C" void main(SystemTable* System)
 		HaltSystem();
 	}
 
-	TskSchl::PCIe::DeviceInfo filters = {}, device;
+	TskSchl::PCIe::DeviceInfo filters = {}, ahciPcieDevice;
 	filters.VendorID = filters.DeviceID = PCIE_ANY16;
 	filters.progIF = 0x01;
 	filters.subClass = 0x06;
 	filters.classCode = 0x01;
 
-	if(!pcie.LocateDevice(&filters, &device)) {
+	if(!pcie.LocateDevice(&filters, &ahciPcieDevice)) {
 		printf("[TSKSCHL] [ERROR]: Failed to locate SATA IntelAHCI Device\r\n");
 		HaltSystem();
 	}
 
-	printf("SATA IntelAHCI Device properties:\r\n");
-	printf("VendorID: 0x%X, DeviceID: 0x%X\r\n", device.VendorID, device.DeviceID);
-	printf("bus: 0x%X, device: 0x%X\r\n\r\n", device.Bus, device.Device);
-	for(size_t i = 0; i < 6; i++)
-	{
-		if(device.BARs[i].BarAddr == 0) continue; // Either non-existent BAR or a 64-bit extension
-		printf("PCIe BAR Index %d: Type: %d, Arch: %d, Size: 0x%llX, Address: 0x%llX\r\n", i, device.BARs[i].BarType, device.BARs[i].BarArch, device.BARs[i].BarLength, device.BARs[i].BarAddr);
+	TskSchl::AHCI::AHCI ahci;
+	TskSchl::AHCI::AHCIDevice ahciDevice;
+
+	ahciDevice.deviceInfo = &ahciPcieDevice;
+
+	if(!ahci.Initialize(&ahciDevice)) {
+		printf("[TSKSCHL] [ERROR]: Failed to initialize SATA IntelAHCI Device\r\n");
+		HaltSystem();
 	}
+
+	char AHCIDeviceModelNumber[41]; // Words 27-46
+	char AHCIDeviceSerialNumber[21]; // Words 10-19
+	char AHCIDeviceFirmwareRevision[9]; // Words 23-26
+
+	volatile uint16_t* bufferWords = reinterpret_cast<volatile uint16_t*>(ahciDevice.ports[0].IdentifyBuffer);
+
+	auto extractStr = [&](char* out, uint16_t startWord, uint16_t endWord) {
+		char* tmp = out;
+		for(uint16_t word = startWord; word <= endWord; word++)
+		{	
+			uint16_t pair = bufferWords[word];
+			*(tmp++) = (pair >> 8) & 0xFF;
+			*(tmp++) = pair & 0xFF;
+		}
+
+		uint16_t chars = (endWord - startWord) * 2;
+
+		for(int16_t i = chars - 1; i >= 0; i--)
+		{
+			if(out[i] == ' ') {
+				out[i] = '\0';
+				continue;
+			}
+
+			out[i + 1] = '\0';
+			break;
+		}
+	};
+
+
+	extractStr(AHCIDeviceModelNumber, 27, 46);
+	extractStr(AHCIDeviceSerialNumber, 10, 19);
+	extractStr(AHCIDeviceFirmwareRevision, 23, 26);
+
+	printf("[TSKSCHL] [INFO]: Found a device at port 0 of AHCI Controller with model name %s, serial number %s and firmware revision %s\r\n", AHCIDeviceModelNumber, AHCIDeviceSerialNumber, AHCIDeviceFirmwareRevision);
+
+	// Test reading sectors 0 & 1 from DISK
+
+	TskSchl::AHCI::AHCIDiskDevice diskDevice = {};
+	diskDevice.controller = &ahciDevice;
+	diskDevice.devicePort = 0;
+
+	uint8_t sectorBuffer[2 * SECTOR_SIZE];
+
+	if(!ahci.ReadSectors(&diskDevice, 0, 2, sectorBuffer)) {
+		printf("[TSKSCHL] [ERROR]: Failed to read from DISK\r\n");
+		HaltSystem();
+	}
+
+	for(size_t i = 0; i < sizeof(sectorBuffer); i++) printf("<0x%X> ", sectorBuffer[i]);
+	
+	puts("\r\n");
 
 	HaltSystem();
 }

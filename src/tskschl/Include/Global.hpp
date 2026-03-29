@@ -5,6 +5,7 @@
 #include <io.hpp>
 #include <string.hpp>
 #include <stdio.hpp>
+#include <algorithm>
 
 #include <Drivers/Paging/paging.hpp>
 
@@ -20,12 +21,18 @@
 
 #include <Drivers/PCIe/PCIe.hpp>
 
+#include <Drivers/AHCI/ahci.hpp>
+
 #define PAGE_ALIGN_UP(addr) (((addr) + 0xFFFULL) & ~(0xFFFULL))
 #define PAGE_ALIGN_DOWN(addr) ((addr) & ~(0xFFFULL))
+
+#define BLOCK_COUNT(bytes) (((bytes) + 0xFFFULL) / 0x1000ULL)
 
 #define KIBIBYTE 1024
 #define MEBIBYTE KIBIBYTE * KIBIBYTE
 #define GIBIBYTE MEBIBYTE * KIBIBYTE
+
+#define SECTOR_SIZE 512
 
 namespace TskSchl
 {
