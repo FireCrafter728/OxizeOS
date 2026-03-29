@@ -12,17 +12,17 @@ build: dir $(OUTPUT)/BootMgr.exe
 
 $(OUTPUT)/BootMgr.exe: $(OBJECTS_CPP) $(OBJECTS_ASM)
 	$(MINGW_LDXX) $(MINGW_LINKFLAGS) -o $@ $^
-	printf "\033[31mCreated -> $@\033[0m\n"
+	printf "\033[1m\033[33m[BOOTMGR]    \033[92mCreated -> $@\033[0m\n"
 
 $(OBJ)/BootManager/cpp/%.obj: Source/%.cpp
 	mkdir -p $(@D)
 	$(MINGW_CXX) $(MINGW_CXXFLAGS) -c -o $@ $<
-	printf "\033[31mCompiled -> $<\033[0m\n"
+	printf "\033[1m\033[33m[BOOTMGR]    \033[96mCompiled -> $<\033[0m\n"
 
 $(OBJ)/BootManager/asm/%.obj: Source/%.asm
 	mkdir -p $(@D)
 	$(X64_TARGET_ASM) $(X64_TARGET_ASMFLAGS) -o $@ $<
-	printf "\033[31mAssembled -> $<\033[0m\n"
+	printf "\033[1m\033[33m[BOOTMGR]    \033[91mAssembled -> $<\033[0m\n"
 
 dir:
 	mkdir -p $(OBJ)/BootManager/cpp

@@ -34,3 +34,15 @@
 - Implemented a minimal **SATA IntelAHCI** Driver for reading from the disk, not much testing was done, but should work on **qemu**
 - Did some minor bugfixes to various parts of code to fix compiler warnings
 - Minor updates to README and CHANGELOG
+
+## 2026-03-29 1.0.1.0006: Build System Refractor
+
+- Added multi-thread compilation to speed up compile times
+- Added a `build` shell script to avoid calling `make -j$(nproc) -s` directly
+- Cleaned up the Makefile
+- Added sparse image support by using qemu-img instead of dd
+- Added a new tool for formatting **GPT** disks to replace gdisk which was taking a lot of time
+- Updated the `Image` tool to use `qemu-img` instead of `dd` and add support for various disk formats supported by `qemu-img` and
+updated it to use the new **GPT** formatting tool instead of gdisk
+- Refractored build system informative output to be more color coded, easier to parse and not use repetitive information
+- Made the compilation times ~3-5x faster than before

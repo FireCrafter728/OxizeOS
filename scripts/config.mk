@@ -60,3 +60,5 @@ export BINUTILS_VERSION=2.46.0
 
 export GCC_URL=https://ftp.gnu.org/gnu/gcc/gcc-$(GCC_VERSION)/gcc-$(GCC_VERSION).tar.gz
 export BINUTILS_URL=https://ftp.gnu.org/gnu/binutils/binutils-$(BINUTILS_VERSION).tar.gz
+
+export NPROC=$(shell nproc)

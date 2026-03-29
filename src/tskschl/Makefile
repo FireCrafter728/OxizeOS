@@ -12,17 +12,17 @@ build: dir gen_isrs $(OUTPUT)/tskschl.exe
 
 $(OUTPUT)/tskschl.exe: $(OBJECTS_CPP) $(OBJECTS_ASM)
 	$(X64_TARGET_LDXX) $(X64_TARGET_LINKFLAGS) -o $@ $^
-	printf "\033[31mCreated -> $@\033[0m\n"
+	printf "\033[1m\033[33m[TSKSCHL]    \033[92mCreated -> $@\033[0m\n"
 
 $(OBJ)/tskschl/cpp/%.obj: Source/%.cpp
 	mkdir -p $(@D)
 	$(X64_TARGET_CXX) $(X64_TARGET_CXXFLAGS) -c -o $@ $<
-	printf "\033[31mCompiled -> $<\033[0m\n"
+	printf "\033[1m\033[33m[TSKSCHL]    \033[96mCompiled -> $<\033[0m\n"
 
 $(OBJ)/tskschl/asm/%.obj: Source/%.asm
 	mkdir -p $(@D)
 	$(X64_TARGET_ASM) $(X64_TARGET_ASMFLAGS) -o $@ $<
-	printf "\033[31mAssembled -> $<\033[0m\n"
+	printf "\033[1m\033[33m[TSKSCHL]    \033[91mAssembled -> $<\033[0m\n"
 
 dir:
 	mkdir -p $(OBJ)/tskschl/cpp

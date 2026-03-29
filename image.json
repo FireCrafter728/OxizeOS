@@ -1,7 +1,7 @@
 {
 	"entries": [
 		{"operation":	"createdisk",
-		"flags":		["input", "/dev/zero", "output", "$ARG1", "bps", "4M", "count", 256]},
+		"flags":		["output", "$ARG1", "size", "1G"]},
 
 		{"operation":	"diskpart",
 		"flags": 		["input", "$ARG1", "operation", "mkgpt"]},

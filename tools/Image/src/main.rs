@@ -23,15 +23,17 @@ struct Entry {
 fn main() {
     let args: Vec<String> = env::args().collect();
     if args.len() < 3 {
-        eprintln!("Syntax: {} <image.json> <disk image>", args[0]);
+        eprintln!("\x1b[31mSyntax: {} <image.json> <disk image>\x1b[0m", args[0]);
         std::process::exit(1);
     }
 
     let filename = &args[1];
     let arg1 = &args[2];
 
-    let file_content = fs::read_to_string(filename).expect("Failed to read file");
-    let config: ImageConfig = serde_json::from_str(&file_content).expect("Invalid JSON format");
+    let file_content = fs::read_to_string(filename).expect("\x1b[31mFailed to read file\x1b[0m");
+    let config: ImageConfig = serde_json::from_str(&file_content).expect("\x1b[31mInvalid JSON format\x1b[0m");
+
+    println!("\x1b[1m\x1b[33m[IMAGE] \x1b[91mBuilding image:\x1b[0m");
 
     for (index, entry) in config.entries.iter().enumerate() {
         match entry.operation.as_str() {
@@ -39,7 +41,7 @@ fn main() {
             "diskpart" => DiskPart(&entry.flags, &entry.extraflags, arg1),
             "fat" => Fat(&entry.flags, &entry.extraflags, arg1),
             other => {
-                eprintln!("Entry {}: Unknown operation {}", index + 1, other);
+                eprintln!("    \x1b[1m\x1b[33m[IMAGE]  \x1b[31mEntry {}: Unknown operation {}\x1b[0m", index + 1, other);
                 process::exit(1);
             }
         }
@@ -48,55 +50,52 @@ fn main() {
 
 fn CreateDisk(flags: &[serde_json::Value], arg1: &str) {
     let mut cmdArgs = vec![];
-    let mut input = None;
     let mut output = None;
-    let mut bps : Option<String> = None;
-    let mut count = None;
+    let mut size : Option<String> = None;
+    let mut format : Option<String> = None;
 
     for pair in flags.chunks(2) {
         if let [keyVal, valVal] = pair {
             match(keyVal.as_str(), valVal.as_str()) {
-                (Some("input"), Some(v)) => input = Some(v.to_string()),
                 (Some("output"), Some(v)) => output = Some(v.replace("$ARG1", arg1)),
                 _ => {
-                    if keyVal == "bps" {
+                    if keyVal == "size" {
                         if let Some(s) = valVal.as_str() {
-                            bps = Some(s.to_string());
-                        } else if let Some(n) = valVal.as_u64() {
-                            bps = Some(n.to_string());
+                            size = Some(s.to_string());
                         }
-                        
-                    }
-                    else if keyVal == "count" {
-                        count = valVal.as_u64();
+                    } else if keyVal == "format" {
+                        if let Some(s) = valVal.as_str() {
+                            format = Some(s.to_string());
+                        }
                     }
                 }
             }
         } else {
-            eprintln!("Malformed flags pair : {:?}", pair);
+            eprintln!("    \x1b[1m\x1b[33m[IMAGE]  \x1b[31mMalformed flags pair : {:?}\x1b[0m", pair);
             process::exit(1);
         }
     }
 
-    let input = input.unwrap_or_else(|| {
-        eprintln!("CreateDisk: missing input file");
+    let output = output.unwrap_or_else(|| {
+        eprintln!("    \x1b[1m\x1b[33m[IMAGE]  \x1b[31mCreateDisk: missing output file\x1b[0m");
         process::exit(1);
     });
 
-    let output = output.unwrap_or_else(|| {
-        eprintln!("CreateDisk: missing output file");
+    let size = size.unwrap_or_else(|| {
+        eprintln!("    \x1b[1m\x1b[33m[IMAGE]  \x1b[31mCreateDisk: missing size\x1b[0m");
         process::exit(1);
     });
     
-    cmdArgs.push(format!("if={}", input));
-    cmdArgs.push(format!("of={}", output));
-    cmdArgs.push(format!("bs={}", bps.as_deref().unwrap_or("512")));
-    cmdArgs.push(format!("count={}", count.unwrap_or(2880)));
+    cmdArgs.push("create");
+    cmdArgs.push("-f");
+    cmdArgs.push(format.as_deref().unwrap_or("raw"));
+    cmdArgs.push(&output);
+    cmdArgs.push(&size);
 
-    println!("Creating disk {}, sectors: {}, bps: {}", output, count.unwrap_or(2880), bps.as_deref().unwrap_or("512"));
+    println!("    \x1b[1m\x1b[33m[IMAGE]  \x1b[96mCreating disk of size {}\x1b[0m", size);
 
-    if let Err(e) = duct::cmd("dd", cmdArgs).stdout_null().stderr_null().run() {
-        eprintln!("Failed to create DISK {}", e);
+    if let Err(e) = duct::cmd("qemu-img", cmdArgs).stdout_null().stderr_null().run() {
+        eprintln!("    \x1b[1m\x1b[33m[IMAGE]  \x1b[31mFailed to create DISK {}\x1b[0m", e);
         process::exit(1);
     }
 }
@@ -121,19 +120,21 @@ fn DiskPart(
     }
 
     let subOperation = subOperation.unwrap_or_else(|| {
-        eprintln!("DiskPart: missing subOperation");
+        eprintln!("    \x1b[1m\x1b[33m[IMAGE]  \x1b[31mDiskPart: missing subOperation\x1b[0m");
         process::exit(1);
     });
 
     let inputFile = inputFile.unwrap_or_else(|| {
-        eprintln!("DiskPart: missing input file");
+        eprintln!("    \x1b[1m\x1b[33m[IMAGE]  \x1b[31mDiskPart: missing input file\x1b[0m");
         process::exit(1);
     });
 
+    CmdArgs.push(inputFile.clone());
+
     match subOperation.as_str() {
         "mkgpt" => {
-            CmdArgs.push("--zap-all".to_string());
-            CmdArgs.push("-o".to_string());
+            CmdArgs.push("MKGPT".to_string());
+            println!("    \x1b[1m\x1b[33m[IMAGE]  \x1b[96mCreating GPT Structures\x1b[0m")
         }
         "mkpart" => {
             let mut partIndex: Option<u16> = Some(1);
@@ -176,28 +177,26 @@ fn DiskPart(
             if let (Some(index), Some(label), Some(ptype), Some(start), Some(size)) = (partIndex, partLabel, partType, startLba, sectorCount) {
                 let end = start + size - 1;
 
-                CmdArgs.push("-n".to_string());
-                CmdArgs.push(format!("{}:{}:{}", index, start, end));
-                CmdArgs.push("-t".to_string());
-                CmdArgs.push(format!("{}:{}", index, ptype));
-                CmdArgs.push("-c".to_string());
-                CmdArgs.push(format!("{}:{}", index, label));
-                println!("Creating partition {} on disk {}, label: {}, part-type: {}, start LBA: {}, sectors: {}", index, inputFile, label, ptype, start, size);
+                CmdArgs.push("MKPART".to_string());
+                CmdArgs.push(label.to_string());
+                CmdArgs.push(ptype.to_string());
+                CmdArgs.push(start.to_string());
+                CmdArgs.push(end.to_string());
+                CmdArgs.push(index.to_string());
+                println!("    \x1b[1m\x1b[33m[IMAGE]  \x1b[96mCreating partition \"{}\" with partition type {}, start LBA {}, sectors {} and partition index {}\x1b[0m", label, ptype, start, size, index);
             } else {
-                eprintln!("DiskPart: subOperation mkpart requires partition index, partition label, type, partition start LBA & partition size in sectors");
+                eprintln!("    \x1b[1m\x1b[33m[IMAGE]  \x1b[31mDiskPart: subOperation mkpart requires partition index, partition label, type, partition start LBA & partition size in sectors\x1b[0m");
                 process::exit(1);
             }
         }
         _ => {
-            eprintln!("DiskPart: Unknown operation {}", subOperation);
+            eprintln!("    \x1b[1m\x1b[33m[IMAGE]  \x1b[31mDiskPart: Unknown operation {}\x1b[0m", subOperation);
             process::exit(1);
         }
-    }
+    };
 
-    CmdArgs.push(inputFile.clone());
-
-    if let Err(e) = duct::cmd("sgdisk", CmdArgs).stdout_null().run() {
-        eprintln!("Failed to partition DISK: {}", e);
+    if let Err(e) = duct::cmd("output/gpt", CmdArgs).stdout_null().run() {
+        eprintln!("    \x1b[1m\x1b[33m[IMAGE]  \x1b[31mFailed to partition DISK: {}\x1b[0m", e);
         process::exit(1);
     }
 }
@@ -222,14 +221,14 @@ fn Fat(flags: &[serde_json::Value], extraflags: &Option<Vec<serde_json::Value>>,
     }
 
     let inputFile = inputFile.unwrap_or_else(|| {
-        eprintln!("FAT: Missing input file");
+        eprintln!("    \x1b[1m\x1b[33m[IMAGE]  \x1b[31mFAT: Missing input file\x1b[0m");
         process::exit(1);
     });
 
     CmdArgs.push(inputFile.clone());
 
     let subOperation = subOperation.unwrap_or_else(|| {
-        eprintln!("FAT: missing subOperation");
+        eprintln!("    \x1b[1m\x1b[33m[IMAGE]  \x1b[31mFAT: missing subOperation\x1b[0m");
         process::exit(1);
     });
 
@@ -242,9 +241,9 @@ fn Fat(flags: &[serde_json::Value], extraflags: &Option<Vec<serde_json::Value>>,
                 if extra.len() >= 2 {
                     CmdArgs.push("--input".to_string());
                     CmdArgs.push(extra[1].as_str().unwrap_or("").to_string());
-                    println!("Creating File / Directory on disk {}, path: {}", inputFile, extra[1].as_str().unwrap_or("").to_string());
+                    println!("    \x1b[1m\x1b[33m[IMAGE]  \x1b[92mCreating File / Directory on disk at path \"{}\"\x1b[0m", extra[1].as_str().unwrap_or("").to_string());
                 } else {
-                    eprintln!("FAT: Not enough extraflags for {}", subOperation);   
+                    eprintln!("    \x1b[1m\x1b[33m[IMAGE]  \x1b[31mFAT: Not enough extraflags for {}\x1b[0m", subOperation);   
                     process::exit(1);
                 }
             }
@@ -256,9 +255,9 @@ fn Fat(flags: &[serde_json::Value], extraflags: &Option<Vec<serde_json::Value>>,
                     CmdArgs.push(extra[1].as_str().unwrap_or("").to_string());
                     CmdArgs.push("--output".to_string());
                     CmdArgs.push(extra[3].as_str().unwrap_or("").to_string());
-                    println!("Copying file to disk {}, path: {}, path in disk: {}", inputFile, extra[1].as_str().unwrap_or("").to_string(), extra[3].as_str().unwrap_or("").to_string());
+                    println!("    \x1b[1m\x1b[33m[IMAGE]  \x1b[92mCopying file to disk at path \"{}\", with path in disk \"{}\"\x1b[0m", extra[1].as_str().unwrap_or("").to_string(), extra[3].as_str().unwrap_or("").to_string());
                 } else {
-                    eprintln!("FAT: Not enough extraflags for diskcpy");
+                    eprintln!("    \x1b[1m\x1b[33m[IMAGE]  \x1b[31mFAT: Not enough extraflags for diskcpy\x1b[0m");
                     process::exit(1);
                 }
             }   
@@ -283,23 +282,23 @@ fn Fat(flags: &[serde_json::Value], extraflags: &Option<Vec<serde_json::Value>>,
                                 CmdArgs.push(f.to_string());
                                 CmdArgs.push(v.to_string());
                             } else {
-                                eprintln!("FAT: Unknown mkfs extraflag {}", k);
+                                eprintln!("    \x1b[1m\x1b[33m[IMAGE]  \x1b[31mFAT: Unknown mkfs extraflag {}\x1b[0m", k);
                                 process::exit(1);
                             }
                         }
                     }
                 }
-                println!("Formatting disk {}", inputFile);
+                println!("    \x1b[1m\x1b[33m[IMAGE]  \x1b[92mFormatting disk\x1b[0m");
             }
         }
         _ => {
-            eprintln!("FAT: Unknown operation {}", subOperation);
+            eprintln!("    \x1b[1m\x1b[33m[IMAGE]  \x1b[31mFAT: Unknown operation {}\x1b[0m", subOperation);
             process::exit(1);
         }
     }
 
     if let Err(e) = duct::cmd("output/fat", CmdArgs).run() {
-        eprintln!("Failed to run FAT: {}", e);
+        eprintln!("    \x1b[1m\x1b[33m[IMAGE]  \x1b[31mFailed to run FAT: {}\x1b[0m", e);
         process::exit(1);
     }
 }

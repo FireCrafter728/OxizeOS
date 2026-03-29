@@ -1,6 +1,6 @@
 include scripts/config.mk
 
-.PHONY: all bootmgr tskschl tools tools-fat tools-image toolchain image dir clean
+.PHONY: all bootmgr tskschl tools tools-fat tools-image tools-gpt toolchain image dir clean
 
 all: dir bootmgr tskschl tools image
 
@@ -12,7 +12,7 @@ bootmgr:
 tskschl:
 	$(MAKE) -C $(SRC)/tskschl
 
-tools: tools-fat tools-image
+tools: tools-fat tools-image tools-gpt
 
 tools-image:
 	$(MAKE) -C tools/Image
@@ -20,7 +20,10 @@ tools-image:
 tools-fat:
 	$(MAKE) -C tools/fat
 
-image:
+tools-gpt:
+	$(MAKE) -C tools/gpt
+
+image: bootmgr tskschl tools
 	$(OUTPUT)/image image.json $(OUTPUT)/OxizeOS.hdd
 
 dir:
