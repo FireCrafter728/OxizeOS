@@ -23,7 +23,7 @@ To make sure you have them installed, view the **Dependencies** section of this 
 2. Then you need to build the `gcc 15.2.0` & `binutils 2.46.0` toolchains. to do that,
 run `make toolchain`.
 3. Then you need to build the internal parts & build the image. for that, run `make`,
-and optionally the `-s` flag for cleaner output.
+and optionally the `-s` flag for cleaner output. To run a multi-threaded build, run `./build`
 4. Then you need to run `./run` to test the OS(or `./run qemu` to test with **QEMU** instead of **VirtualBox**). For that, you need to make sure you have
 **Virtual Box** or **qemu** installed with it's tools avaiable in the system `PATH`.
 

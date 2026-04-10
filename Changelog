@@ -46,3 +46,10 @@
 updated it to use the new **GPT** formatting tool instead of gdisk
 - Refractored build system informative output to be more color coded, easier to parse and not use repetitive information
 - Made the compilation times ~3-5x faster than before
+
+## 2026-04-10 1.0.1.0007: small general refractoring
+
+- Added a new `resources` folder that contains constant resources copied to the image
+- Added new `VOLID.CONF` files(although on host they're named differently) containing some volume information that normally cannot be stored inside FS internals
+- Updated image.json to format the OS partition, add some directories and copy a test file. For now the main OS partition will use FAT32 until I develop a new file system
+- Removed redundant `MdeModulePkg`, `ShellPkg` and `CryptoPkg` include folders in `lib/UEFI/` that were taking up space

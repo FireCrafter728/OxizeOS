@@ -15,8 +15,8 @@ export LD=gcc
 export LDXX=g++
 export AR=ar
 export ASM=nasm
-export CFLAGS= -std=c17 -Wall -Wextra -O2 -m64
-export CXXFLAGS= -std=c++17 -Wall -Wextra -O2 -m64
+export CFLAGS= -std=c23 -Wall -Wextra -O2 -m64
+export CXXFLAGS= -std=c++23 -Wall -Wextra -O2 -m64
 export ASMFLAGS=
 export LINKFLAGS=
 export ARFLAGS

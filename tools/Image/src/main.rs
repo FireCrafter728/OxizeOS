@@ -211,9 +211,14 @@ fn Fat(flags: &[serde_json::Value], extraflags: &Option<Vec<serde_json::Value>>,
             match(key.as_str(), val.as_str()) {
                 (Some("input"), Some(v)) => inputFile = Some(v.replace("$ARG1", arg1)),
                 (Some("operation"), Some(v)) => subOperation = Some(v.to_string()),
-                (Some("partitionIndex"), Some(v)) => {
-                    CmdArgs.push("-p".to_string());
-                    CmdArgs.push(v.to_string());
+                (Some("partitionIndex"), _) => {
+                    if let Some(v) = val.as_u64() {
+                        CmdArgs.push("-p".to_string());
+                        CmdArgs.push(v.to_string());
+                    } else {
+                        eprintln!("Partition index must be a number");
+                        process::exit(1);
+                    }
                 }
                 _ => {}
             }

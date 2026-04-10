@@ -8,34 +8,58 @@
 
 		{"operation":	"diskpart",
 		"flags":		["input", "$ARG1", "operation", "mkpart"],
-		"extraflags":	["partIndex", 1, "partLabel", "EFI System Partition", "partType", "EF00", "partStartLba", 2048, "partSectors", 262144]},
+		"extraflags":	["partIndex", 1, "partLabel", "EFI System Partition", "partType", "EF00", "partStartLba", 2048, "partSectors", 524288]},
 
 		{"operation":	"diskpart",
 		"flags":		["input", "$ARG1", "operation", "mkpart"],
-		"extraflags":	["partIndex", 2, "partLabel", "OxizeOS", "partType", "0700", "partStartLba", 266240, "partSectors", 1830879]},
+		"extraflags":	["partIndex", 2, "partLabel", "OxizeOS", "partType", "0700", "partStartLba", 528384, "partSectors", 1566687]},
 
 		{"operation":	"fat",
-		"flags":		["input", "$ARG1", "operation", "mkfs"],
-		"extraflags":	["volumelabel", "OXIZEOS"]},
+		"flags":		["input", "$ARG1", "partitionIndex", 1, "operation", "mkfs"],
+		"extraflags":	["volumelabel", "EFI SYSPART"]},
 
 		{"operation":	"fat",
-		"flags":		["input", "$ARG1", "operation", "mkdir"],
+		"flags":		["input", "$ARG1", "partitionIndex", 1, "operation", "mkdir"],
 		"extraflags":	["path", "\\EFI"]},
 
 		{"operation":	"fat",
-		"flags":		["input", "$ARG1", "operation", "mkdir"],
+		"flags":		["input", "$ARG1", "partitionIndex", 1, "operation", "mkdir"],
 		"extraflags":	["path", "\\EFI\\BOOT"]},
 
 		{"operation":	"fat",
-		"flags":		["input", "$ARG1", "operation", "mkdir"],
+		"flags":		["input", "$ARG1", "partitionIndex", 1, "operation", "mkdir"],
 		"extraflags":	["path", "\\EFI\\OxizeOS"]},
 
 		{"operation":	"fat",
-		"flags":		["input", "$ARG1", "operation", "diskcpy"],
+		"flags":		["input", "$ARG1", "partitionIndex", 1, "operation", "diskcpy"],
+		"extraflags":	["hostPath", "resources/descriptors/EFI_SYSPART.CONF", "diskPath", "\\VOLID.CONF"]},
+
+		{"operation":	"fat",
+		"flags":		["input", "$ARG1", "partitionIndex", 1, "operation", "diskcpy"],
 		"extraflags":	["hostPath", "output/BootMgr.exe", "diskPath", "\\EFI\\BOOT\\BOOTX64.EFI"]},
 
 		{"operation":	"fat",
-		"flags":		["input", "$ARG1", "operation", "diskcpy"],
-		"extraflags":	["hostPath", "output/tskschl.exe", "diskPath", "\\EFI\\OxizeOS\\tskschl.exe"]}
+		"flags":		["input", "$ARG1", "partitionIndex", 1, "operation", "diskcpy"],
+		"extraflags":	["hostPath", "output/tskschl.exe", "diskPath", "\\EFI\\OxizeOS\\tskschl.exe"]},
+
+		{"operation":	"fat",
+		"flags":		["input", "$ARG1", "partitionIndex", 2, "operation", "mkfs"],
+		"extraflags":	["volumelabel", "OS SYSPART"]},
+
+		{"operation":	"fat",
+		"flags":		["input", "$ARG1", "partitionIndex", 2, "operation", "mkdir"],
+		"extraflags":	["path", "\\OxizeOS"]},
+
+		{"operation":	"fat",
+		"flags":		["input", "$ARG1", "partitionIndex", 2, "operation", "mkdir"],
+		"extraflags":	["path", "\\OxizeOS\\System"]},
+
+		{"operation":	"fat",
+		"flags":		["input", "$ARG1", "partitionIndex", 2, "operation", "diskcpy"],
+		"extraflags":	["hostPath", "resources/descriptors/OS_SYSPART.CONF", "diskPath", "\\VOLID.CONF"]},
+
+		{"operation":	"fat",
+		"flags":		["input", "$ARG1", "partitionIndex", 2, "operation", "diskcpy"],
+		"extraflags":	["hostPath", "resources/tests/test.txt", "diskPath", "\\OxizeOS\\System\\text.txt"]}
 	]
 }

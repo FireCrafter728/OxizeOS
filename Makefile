@@ -29,8 +29,9 @@ image: bootmgr tskschl tools
 dir:
 	mkdir -p $(OUTPUT)
 	mkdir -p $(OBJ)
-	mkdir -p $(OBJ)/tools/image
 	mkdir -p $(OBJ)/tools/fat
+	mkdir -p $(OBJ)/tools/image
+	mkdir -p $(OBJ)/tools/gpt
 
 clean:
 	rm -rf $(OUTPUT)

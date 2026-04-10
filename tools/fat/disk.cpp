@@ -14,7 +14,7 @@ bool DISK::Initialize(LPCSTR DiskImage)
 
 bool DISK::ReadSectors(m_uint32_t lba, m_uint16_t count, void* dataOut)
 {
-    fseek(disk, lba * SECTOR_SIZE, SEEK_SET);
+    fseeko(disk, lba * SECTOR_SIZE, SEEK_SET);
     if(fread(dataOut, SECTOR_SIZE, count, disk) != count) {
         fprintf(stderr, "[DISK] [ERROR]: Failed to read from disk at lba %u\n", lba);
         return false;
@@ -24,7 +24,7 @@ bool DISK::ReadSectors(m_uint32_t lba, m_uint16_t count, void* dataOut)
 
 bool DISK::WriteSectors(m_uint32_t lba, m_uint16_t count, void* buffer)
 {
-    fseek(disk, lba * SECTOR_SIZE, SEEK_SET);
+    fseeko(disk, lba * SECTOR_SIZE, SEEK_SET);
     if(fwrite(buffer, SECTOR_SIZE, count, disk) != count) {
         fprintf(stderr, "[DISK] [ERROR]: Failed to write data to disk at lba %u\n", lba);
         return false;

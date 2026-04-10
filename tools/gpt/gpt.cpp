@@ -17,9 +17,9 @@ bool GPT::CreateGPT(FILE* image)
 
     memset(gpt, 0, sizeof(GPT_Table));
 
-    fseek(image, 0, SEEK_END);
-    size_t imageSize = ftell(image);
-    fseek(image, 0, SEEK_SET);
+    fseeko(image, 0, SEEK_END);
+    size_t imageSize = ftello(image);
+    fseeko(image, 0, SEEK_SET);
 
     size_t imageSectors = imageSize / SECTOR_SIZE;
 
@@ -70,7 +70,7 @@ bool GPT::CreateGPT(FILE* image)
     bGPT->header.HeaderCRC32 = 0;
     bGPT->header.HeaderCRC32 = ComputeCRC32(&bGPT->header, 0x5C);
 
-    fseek(image, -(33 * SECTOR_SIZE), SEEK_END);
+    fseeko(image, -(33ULL * SECTOR_SIZE), SEEK_END);
 
     if(fwrite(bGPT, 1, sizeof(BackupGPT), image) != sizeof(BackupGPT)) {
         fprintf(stderr, "Failed to write backup GPT to disk\n");
@@ -89,7 +89,7 @@ bool GPT::CreatePart(FILE* image, GPT_PartitionEntry partEntry, uint8_t index)
         return false;
     }
 
-    fseek(image, 0, SEEK_SET);
+    fseeko(image, 0, SEEK_SET);
 
     if(fread(gpt, 1, sizeof(GPT_Table), image) != sizeof(GPT_Table)) {
         fprintf(stderr, "Failed to read GPT\n");
@@ -102,7 +102,7 @@ bool GPT::CreatePart(FILE* image, GPT_PartitionEntry partEntry, uint8_t index)
     gpt->header.HeaderCRC32 = 0;
     gpt->header.HeaderCRC32 = ComputeCRC32(&gpt->header, 0x5C);
 
-    fseek(image, 0, SEEK_SET);
+    fseeko(image, 0, SEEK_SET);
 
     if(fwrite(gpt, 1, sizeof(GPT_Table), image) != sizeof(GPT_Table)) {
         fprintf(stderr, "Failed to write GPT\n");
@@ -116,7 +116,7 @@ bool GPT::CreatePart(FILE* image, GPT_PartitionEntry partEntry, uint8_t index)
         return false;
     }
 
-    fseek(image, -(33 * SECTOR_SIZE), SEEK_END);
+    fseeko(image, -(33ULL * SECTOR_SIZE), SEEK_END);
 
     if(fread(bGPT, 1, sizeof(BackupGPT), image) != sizeof(BackupGPT)) {
         fprintf(stderr, "Failed to read backup GPT\n");
@@ -130,7 +130,7 @@ bool GPT::CreatePart(FILE* image, GPT_PartitionEntry partEntry, uint8_t index)
     bGPT->header.HeaderCRC32 = 0;
     bGPT->header.HeaderCRC32 = ComputeCRC32(&bGPT->header, 0x5C);
 
-    fseek(image, -(33 * SECTOR_SIZE), SEEK_END);
+    fseeko(image, -(33ULL * SECTOR_SIZE), SEEK_END);
 
     if(fwrite(bGPT, 1, sizeof(BackupGPT), image) != sizeof(BackupGPT)) {
         fprintf(stderr, "Failed to write backup GPT\n");
