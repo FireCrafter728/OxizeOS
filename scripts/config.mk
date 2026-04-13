@@ -6,9 +6,6 @@ export LIB=$(abspath lib)
 export TOOLCHAIN=$(abspath toolchain)
 export SCRIPTS=$(abspath scripts)
 
-export CARGO=cargo
-export CARGOFLAGS=build --release
-
 export CC=gcc
 export CXX=g++
 export LD=gcc
@@ -60,5 +57,3 @@ export BINUTILS_VERSION=2.46.0
 
 export GCC_URL=https://ftp.gnu.org/gnu/gcc/gcc-$(GCC_VERSION)/gcc-$(GCC_VERSION).tar.gz
 export BINUTILS_URL=https://ftp.gnu.org/gnu/binutils/binutils-$(BINUTILS_VERSION).tar.gz
-
-export NPROC=$(shell nproc)

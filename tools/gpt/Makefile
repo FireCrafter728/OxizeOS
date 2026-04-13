@@ -9,7 +9,7 @@ OBJECS_CPP=$(patsubst %.cpp, $(OBJ)/tools/gpt/%.obj, $(SOURCES_CPP))
 gpt_build: $(OUTPUT)/gpt
 $(OUTPUT)/gpt: $(OBJECS_CPP)
 	$(LDXX) $(LINKFLAGS) -o $@ $^
-	printf "\033[1m\033[33m[GPT]        \033[92mCreated -> tools/gpt\033[0m\n"
+	printf "\033[1m\033[33m[GPT]        \033[92mCreated -> $@\033[0m\n"
 
 $(OBJ)/tools/gpt/%.obj: %.cpp
 	mkdir -p $(@D)

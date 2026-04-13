@@ -9,7 +9,7 @@ OBJECS_CPP=$(patsubst %.cpp, $(OBJ)/tools/fat/%.obj, $(SOURCES_CPP))
 fat_build: $(OUTPUT)/fat
 $(OUTPUT)/fat: $(OBJECS_CPP)
 	$(LDXX) $(LINKFLAGS) -o $@ $^
-	printf "\033[1m\033[33m[FAT32]      \033[92mCreated -> tools/fat\033[0m\n"
+	printf "\033[1m\033[33m[FAT32]      \033[92mCreated -> $@\033[0m\n"
 
 $(OBJ)/tools/fat/%.obj: %.cpp
 	mkdir -p $(@D)

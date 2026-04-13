@@ -24,7 +24,7 @@ tools-gpt:
 	$(MAKE) -C tools/gpt
 
 image: bootmgr tskschl tools
-	$(OUTPUT)/image image.json $(OUTPUT)/OxizeOS.hdd
+	$(OUTPUT)/image image.conf
 
 dir:
 	mkdir -p $(OUTPUT)

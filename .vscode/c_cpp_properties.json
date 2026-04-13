@@ -1,0 +1,62 @@
+{
+    "configurations": [
+        {
+            "name": "Linux",
+            "includePath": [
+                "${workspaceFolder}/**"
+            ],
+            "defines": [],
+            "compilerPath": "/usr/bin/clang",
+            "cStandard": "c17",
+            "cppStandard": "c++17",
+            "intelliSenseMode": "linux-clang-x64"
+        },
+        {
+            "name": "TskSchl",
+            "includePath": [
+                "${workspaceFolder}/src/tskschl/Include/**",
+                "${workspaceFolder}/lib/OxizeOS/**"
+            ],
+            "compilerPath": "${workspaceFolder}/toolchain/x86_64-elf/bin/x86_64-elf-gcc",
+            "cStandard": "c23",
+            "cppStandard": "c++23",
+            "intelliSenseMode": "linux-gcc-x64",
+            "forcedInclude": [
+                "${workspaceFolder}/src/tskschl/Include/Global.hpp"
+            ]
+        },
+        {
+            "name": "GPT",
+            "includePath": [
+                "${workspaceFolder}/tools/gpt/**"
+            ],
+            "compilerPath": "/usr/bin/gcc",
+            "cStandard": "c23",
+            "cppStandard": "c++23",
+            "intelliSenseMode": "linux-gcc-x64",
+            "forcedInclude": [
+                "${workspaceFolder}/tools/gpt/global.hpp"
+            ],
+            "compilerArgs": [
+                "-fshort-wchar"
+            ],
+            "defines": [
+                "__SIZEOF_WCHAR_T__=2"
+            ]
+        },
+        {
+            "name": "Image",
+            "includePath": [
+                "${workspaceFolder}/tools/Image/Include/**"
+            ],
+            "compilerPath": "/usr/bin/gcc",
+            "cStandard": "c23",
+            "cppStandard": "c++23",
+            "intelliSenseMode": "linux-gcc-x64",
+            "forcedInclude": [
+                "${workspaceFolder}/tools/Image/Include/Global.hpp"
+            ]
+        }
+    ],
+    "version": 4
+}

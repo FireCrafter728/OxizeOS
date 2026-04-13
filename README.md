@@ -14,7 +14,7 @@
 and uses it's own UEFI bootloader, currently very minimal
 Currently, **OxizeOS** is in the very early stages of developement, and has recently
 been completely restarted, abandoning the old **32-bit** Attempt, and targeting **64-bit**
-mode with 4-level Paging(PML4)
+long mode
 
 ## Building
 

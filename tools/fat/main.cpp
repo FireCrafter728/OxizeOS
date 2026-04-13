@@ -553,7 +553,7 @@ int main(int argc, char **argv)
             size_t len = strlen(operation.args[9]);
             if (len > 11)
             {
-                printf("[FAT32-MAIN] [ERROR]: Volume label cannot be longer than 11 characters\n");
+                printf("[FAT32-MAIN] [ERROR]: Volume label cannot be longer than 11 characters. Current: %s(len: %lu)\n", operation.args[9], len);
                 return 29;
             }
             memset(VolumeLabel, ' ', 11);
