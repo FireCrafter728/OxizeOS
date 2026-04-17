@@ -70,7 +70,7 @@ namespace FAT32
             m_uint8_t Name[11];
             m_uint8_t Attribs;
             m_uint8_t _Reserved;
-            m_uint8_t CreatedTimeHundreads;
+            m_uint8_t CreatedTimeTenths;
             m_uint16_t CreationTime;
             m_uint16_t CreationDate;
             m_uint16_t LastAccessedDate;
@@ -149,6 +149,18 @@ namespace FAT32
             m_uint32_t VolumeID = 0;
             m_uint8_t VolumeLabel[11] = {'F', 'A', 'T', '3', '2', ' ', ' ', ' ', ' ', ' ', ' '};
         };
+        
+        struct __attribute__((packed)) TimeDateDesc
+        {
+            // Date
+            m_uint16_t Year;
+            m_uint8_t Month, Day;
+
+            // Time
+            m_uint8_t Hour, Minute, Second, _Reserved;
+            m_uint16_t millisecond;
+        };
+
         class FAT
         {
         public:
@@ -208,6 +220,10 @@ namespace FAT32
             void FreeClusterChain(m_uint32_t startCluster);
 
             bool CreateDirectoryEntry(File *dir, LPCSTR name, LFNDirectoryEntry *entry);
+
+            void SetEntryTime(DirectoryEntry* entry, bool create = false, bool access = false);
+
+            TimeDateDesc GetCurrentTimeDate();
         };
     }
 }

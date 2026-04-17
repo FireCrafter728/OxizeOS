@@ -45,7 +45,6 @@ For this you need:
 
 - To make sure the toolchain is installed correctly & working
 - Working base `GCC` & `Binutils` with **C++23** support (I recommend `GCC 14/15` or later)
-- `cargo` installed together with `rustc`
 - tools `gdisk`, `dd`, `nasm`, `mingw-w64`
 - `python3` installed for scripts
 

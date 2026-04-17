@@ -25,25 +25,53 @@ int main(int argc, char **argv)
 
     if (args.Version)
     {
-        printf("Test FAT32 Driver Version 1.0\nSyntax: %s <Disk Image> [FLAGS]\n", argv[0]);
+        printf("FAT32 Driver Version 1.1\nSyntax: %s <Disk Image> [FLAGS]\n", argv[0]);
         delete (parser);
         return 0;
     }
 
     if (args.Help)
     {
-        printf("Test FAT32 Driver Version 1.0\n"
+        printf("FAT32 Driver Version 1.1\n"
                "Syntax: %s <Disk Image> [FLAGS]\n"
                "Supported disk image formats: RAW\n"
+               "Flags:\n"
+               "    -p, --partition <partition Index>: Specify the GPT partition index to work on\n"
+               "    -s: Specify to use scripting mode, more down below\n"
                "Operations:\n"
                "    ReadFile - Print specified file contents\n"
+               "    ListFiles - Print a structured list of entries in a directory\n"
                "    CreateFile - Create a file\n"
+               "    CreateDir - Create a directory\n"
                "    DeleteFile - Delete a file\n"
+               "    DeleteDir - Delete a directory\n"
                "    RenameFile - Rename a file\n"
+               "    RenameDir - Rename a directory\n"
+               "    CopyFile - Copy a file to a new location\n"
+               "    CopyDir - Copy a directory to a new location\n"
                "    MoveFile - Move a file to a specified location\n"
+               "    MoveDir - Move a directory to a specified location\n"
                "    CopyFileTo - Copy a file into the disk image\n"
-               "    CopyFileFrom - Copy a file from the disk image to a specified location in the disk\n",
-               argv[0]);
+               "    CopyFileFrom - Copy a file from the disk image to a specified location in the disk\n"
+               "    MakeFS - Format a partition with the FAT32 File System\n"
+               "Syntax for scripting: %s -s <Disk Image> --operation <operation> [FLAGS]\n"
+               "Scripting operations:\n"
+               "    rdfile(ReadFile) -i <Path>\n"
+               "    dir(ListFiles) -i <Path>\n"
+               "    mkfile(CreateFile) -i <Path>\n"
+               "    mkdir(CreateDir) -i <Path>\n"
+               "    delfile(DeleteFile) -i <Path>\n"
+               "    deldir(DeleteDir) -i <Path>\n"
+               "    renfile(RenameFile) -i <Path> -o <Name>\n"
+               "    rendir(RenameDir) -i <Path> -o <Name>\n"
+               "    cpfile(CopyFile) -i <Path> -o <Path>\n"
+               "    cpdir(CopyDir) -i <Path> -o <Path>\n"
+               "    mvfile(MoveFile) -i <Path> -o <Path>\n"
+               "    mvdir(MoveDir) -i <Path> -o <Path>\n"
+               "    diskcpy(CopyFileTo) -i <hostPath> -o <diskPath>\n"
+               "    hostcpy(CopyFileFrom) -i <diskPath> -o <hostPath>\n"
+               "    mkfs(MakeFS) -l <Label>\n",
+               argv[0], argv[0]);
         delete (parser);
         return 0;
     }
@@ -78,7 +106,7 @@ int main(int argc, char **argv)
 
     if (operation.operation == FAT32::Parser::Operations::NONE)
     {
-        printf("[FAT32-MAIN] [ERROR]: Failed to retrieve operation\n");
+        fprintf(stderr, "[FAT32-MAIN] [ERROR]: Failed to retrieve operation\n");
         delete (parser);
         return -1;
     }
@@ -150,7 +178,7 @@ int main(int argc, char **argv)
     {
         if (!fat->OpenFile(operation.args[0], &file))
         {
-            printf("[FAT32-MAIN] [ERROR]: Failed to open file %s\n", operation.args[0]);
+            fprintf(stderr, "[FAT32-MAIN] [ERROR]: Failed to open file %s\n", operation.args[0]);
             delete (parser);
             delete (disk);
             delete (gpt);
@@ -207,8 +235,8 @@ int main(int argc, char **argv)
             char TimeStr[9];
             char DateStr[11];
 
-            fat->GetTimeFormatted(entry.SFNEntry.CreationTime, TimeStr);
-            fat->GetDateFormatted(entry.SFNEntry.CreationDate, DateStr);
+            fat->GetTimeFormatted(entry.SFNEntry.LastModifiedTime, TimeStr);
+            fat->GetDateFormatted(entry.SFNEntry.LastModifiedDate, DateStr);
 
             printf("%s   %s    ", DateStr, TimeStr);
             if (entry.SFNEntry.Attribs & FAT32::FAT::FileAttribs::DIRECTORY)
@@ -258,7 +286,7 @@ int main(int argc, char **argv)
     {
         if (!fat->CreateEntry(operation.args[0], false, &file))
         {
-            printf("[FAT32-MAIN] [ERROR]: Failed to create file %s\n", operation.args[0]);
+            fprintf(stderr, "[FAT32-MAIN] [ERROR]: Failed to create file %s\n", operation.args[0]);
             delete (parser);
             delete (disk);
             delete (gpt);
@@ -271,7 +299,7 @@ int main(int argc, char **argv)
     {
         if (!fat->CreateEntry(operation.args[0], true, &file))
         {
-            printf("[FAT32-MAIN] [ERROR]: Failed to create directory %s\n", operation.args[0]);
+            fprintf(stderr, "[FAT32-MAIN] [ERROR]: Failed to create directory %s\n", operation.args[0]);
             delete (parser);
             delete (disk);
             delete (gpt);
@@ -284,7 +312,7 @@ int main(int argc, char **argv)
     {
         if (!fat->DeleteEntry(operation.args[0], false))
         {
-            printf("[FAT32-MAIN] [ERROR]: Failed to delete file %s\n", operation.args[0]);
+            fprintf(stderr, "[FAT32-MAIN] [ERROR]: Failed to delete file %s\n", operation.args[0]);
             delete (parser);
             delete (disk);
             delete (gpt);
@@ -297,7 +325,7 @@ int main(int argc, char **argv)
     {
         if (!fat->DeleteDir(operation.args[0]))
         {
-            printf("[FAT32-MAIN] [ERROR]: Failed to delete directory %s\n", operation.args[0]);
+            fprintf(stderr, "[FAT32-MAIN] [ERROR]: Failed to delete directory %s\n", operation.args[0]);
             delete (parser);
             delete (disk);
             delete (gpt);
@@ -310,7 +338,7 @@ int main(int argc, char **argv)
     {
         if (!fat->RenameEntry(operation.args[0], operation.args[1], false, &file))
         {
-            printf("[FAT32-MAIN] [ERROR]: Failed to rename file %s to %s\n", operation.args[0], operation.args[1]);
+            fprintf(stderr, "[FAT32-MAIN] [ERROR]: Failed to rename file %s to %s\n", operation.args[0], operation.args[1]);
             delete (parser);
             delete (disk);
             delete (gpt);
@@ -323,7 +351,7 @@ int main(int argc, char **argv)
     {
         if (!fat->RenameEntry(operation.args[0], operation.args[1], true, &file))
         {
-            printf("[FAT32-MAIN] [ERROR]: Failed to rename directory %s to %s\n", operation.args[0], operation.args[1]);
+            fprintf(stderr, "[FAT32-MAIN] [ERROR]: Failed to rename directory %s to %s\n", operation.args[0], operation.args[1]);
             delete (parser);
             delete (disk);
             delete (gpt);
@@ -337,7 +365,7 @@ int main(int argc, char **argv)
         FAT32::FAT::File newFile;
         if (!fat->CopyEntry(operation.args[0], operation.args[1], false, &newFile))
         {
-            printf("[FAT32-MAIN] [ERROR]: Failed to copy file %s to %s\n", operation.args[0], operation.args[1]);
+            fprintf(stderr, "[FAT32-MAIN] [ERROR]: Failed to copy file %s to %s\n", operation.args[0], operation.args[1]);
             delete (parser);
             delete (disk);
             delete (gpt);
@@ -351,7 +379,7 @@ int main(int argc, char **argv)
         FAT32::FAT::File newDir;
         if (!fat->CopyEntry(operation.args[0], operation.args[1], true, &newDir))
         {
-            printf("[FAT32-MAIN] [ERROR]: Failed to copy dir %s to %s\n", operation.args[0], operation.args[1]);
+            fprintf(stderr, "[FAT32-MAIN] [ERROR]: Failed to copy dir %s to %s\n", operation.args[0], operation.args[1]);
             delete (parser);
             delete (disk);
             delete (gpt);
@@ -365,7 +393,7 @@ int main(int argc, char **argv)
         FAT32::FAT::File movedFile;
         if (!fat->MoveEntry(operation.args[0], operation.args[1], false, &movedFile))
         {
-            printf("[FAT32-MAIN] [ERROR]: Failed to move file %s to %s\n", operation.args[0], operation.args[1]);
+            fprintf(stderr, "[FAT32-MAIN] [ERROR]: Failed to move file %s to %s\n", operation.args[0], operation.args[1]);
             delete (parser);
             delete (disk);
             delete (gpt);
@@ -379,7 +407,7 @@ int main(int argc, char **argv)
         FAT32::FAT::File movedDir;
         if (!fat->MoveEntry(operation.args[0], operation.args[1], true, &movedDir))
         {
-            printf("[FAT32-MAIN] [ERROR]: Failed to move dir %s to %s\n", operation.args[0], operation.args[1]);
+            fprintf(stderr, "[FAT32-MAIN] [ERROR]: Failed to move dir %s to %s\n", operation.args[0], operation.args[1]);
             delete (parser);
             delete (disk);
             delete (gpt);
@@ -397,7 +425,7 @@ int main(int argc, char **argv)
         {
             if (!hostFile)
             {
-                printf("[FAT32-MAIN] [ERROR]: Failed to create file %s\n", operation.args[1]);
+                fprintf(stderr, "[FAT32-MAIN] [ERROR]: Failed to create file %s\n", operation.args[1]);
                 delete (parser);
                 delete (disk);
                 delete (gpt);
@@ -406,7 +434,7 @@ int main(int argc, char **argv)
             }
             if (fwrite(&buffer, read, 1, hostFile) != 1)
             {
-                printf("[FAT32-MAIN] [ERROR]: Failed to write to file %s\n", operation.args[1]);
+                fprintf(stderr, "[FAT32-MAIN] [ERROR]: Failed to write to file %s\n", operation.args[1]);
                 fclose(hostFile);
                 delete (parser);
                 delete (disk);
@@ -422,13 +450,13 @@ int main(int argc, char **argv)
     {
         if (!fat->CreateEntry(operation.args[1], false, &file))
         {
-            printf("[FAT32-MAIN] [ERROR]: Failed to create file %s\n", operation.args[1]);
-            return false;
+            fprintf(stderr, "[FAT32-MAIN] [ERROR]: Failed to create file %s\n", operation.args[1]);
+            return 22;
         }
         FILE *hostFile = fopen(operation.args[0], "rb");
         if (!hostFile)
         {
-            printf("[FAT32-MAIN] [ERROR]: Failed to open file %s\n", operation.args[0]);
+            fprintf(stderr, "[FAT32-MAIN] [ERROR]: Failed to open file %s\n", operation.args[0]);
             delete (parser);
             delete (disk);
             delete (gpt);
@@ -437,7 +465,7 @@ int main(int argc, char **argv)
         }
         if (fseek(hostFile, 0, SEEK_END) != 0)
         {
-            printf("[FAT32-MAIN] [ERROR]: Failed to seek in file %s\n", operation.args[0]);
+            fprintf(stderr, "[FAT32-MAIN] [ERROR]: Failed to seek in file %s\n", operation.args[0]);
             fclose(hostFile);
             delete (parser);
             delete (disk);
@@ -448,7 +476,7 @@ int main(int argc, char **argv)
         int64_t fileSize = ftell(hostFile);
         if (fileSize == -1L)
         {
-            printf("[FAT32-MAIN] [ERROR]: Failed to get file %s position", operation.args[0]);
+            fprintf(stderr, "[FAT32-MAIN] [ERROR]: Failed to get file %s position", operation.args[0]);
             fclose(hostFile);
             delete (parser);
             delete (disk);
@@ -458,7 +486,7 @@ int main(int argc, char **argv)
         }
         if (fseek(hostFile, 0, SEEK_SET) != 0)
         {
-            printf("[FAT32-MAIN] [ERROR]: Failed to seek in file %s\n", operation.args[0]);
+            fprintf(stderr, "[FAT32-MAIN] [ERROR]: Failed to seek in file %s\n", operation.args[0]);
             fclose(hostFile);
             delete (parser);
             delete (disk);
@@ -469,7 +497,7 @@ int main(int argc, char **argv)
         void *buffer = malloc(fileSize);
         if (!buffer)
         {
-            printf("[FAT32-MAIN] [ERROR]: memory allocation failed\n");
+            fprintf(stderr, "[FAT32-MAIN] [ERROR]: memory allocation failed\n");
             fclose(hostFile);
             delete (parser);
             delete (disk);
@@ -480,7 +508,7 @@ int main(int argc, char **argv)
         uint32_t read = fread(buffer, fileSize, 1, hostFile);
         if (read != 1)
         {
-            printf("[FAT32-MAIN] [ERROR]: Failed to read file %s\n", operation.args[0]);
+            fprintf(stderr, "[FAT32-MAIN] [ERROR]: Failed to read file %s\n", operation.args[0]);
             fclose(hostFile);
             delete (parser);
             delete (disk);
@@ -491,7 +519,7 @@ int main(int argc, char **argv)
 
         if (!fat->SetFileData(operation.args[1], buffer, fileSize))
         {
-            printf("[FAT32-MAIN] [ERROR]: Failed to copy file %s\n", operation.args[0]);
+            fprintf(stderr, "[FAT32-MAIN] [ERROR]: Failed to copy file %s\n", operation.args[0]);
             fclose(hostFile);
             delete (parser);
             delete (disk);
@@ -553,7 +581,7 @@ int main(int argc, char **argv)
             size_t len = strlen(operation.args[9]);
             if (len > 11)
             {
-                printf("[FAT32-MAIN] [ERROR]: Volume label cannot be longer than 11 characters. Current: %s(len: %lu)\n", operation.args[9], len);
+                fprintf(stderr, "[FAT32-MAIN] [ERROR]: Volume label cannot be longer than 11 characters. Current: %s(len: %lu)\n", operation.args[9], len);
                 return 29;
             }
             memset(VolumeLabel, ' ', 11);
@@ -566,7 +594,7 @@ int main(int argc, char **argv)
     }
     default:
     {
-        printf("[FAT32-MAIN] [WARN]: Operation is under developement\n");
+        printf("[FAT32-MAIN] [ERROR]: Unknown operation\n");
         break;
     }
     }

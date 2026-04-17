@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <ctype.h>
 #include <algorithm>
+#include <chrono>
 
 using namespace FAT32::FAT;
 
@@ -190,6 +191,26 @@ bool FAT::mkfs(MKFSDesc *desc)
     }
 
     if (!gpt->WriteSectors(bootSector.bpb.ReservedSectors + bootSector.ebr.SectorsPerFAT, 1, &buffer))
+    {
+        fprintf(stderr, "[FAT32] [ERROR]: Failed to write to DISK\n");
+        return false;
+    }
+
+    // Write root directory
+
+    memset(buffer, 0, SECTOR_SIZE);
+
+    DirectoryEntry VolumeEntry = {};
+    memcpy(VolumeEntry.Name, desc->VolumeLabel, 11);
+    VolumeEntry.Attribs = FileAttribs::VOLUMEID;
+
+    memcpy(buffer, &VolumeEntry, sizeof(DirectoryEntry));
+
+    // Calculate LBA of cluster manually as ClusterToLba() depends on full Initialize function, which for MKFS cannot be called.
+
+    m_uint32_t rootdirSector = bootSector.bpb.ReservedSectors + (bootSector.bpb.FATCount * bootSector.ebr.SectorsPerFAT);
+
+    if(!gpt->WriteSectors(rootdirSector, 1, buffer))
     {
         fprintf(stderr, "[FAT32] [ERROR]: Failed to write to DISK\n");
         return false;
@@ -428,7 +449,7 @@ bool FAT::FindFile(LPCSTR path, LFNDirectoryEntry *entryOut)
         {
             if (entry.IsLFN)
             {
-                if (strcasecmp(entry.LFN, nameBuffer) == 0)
+                if (strcmp(entry.LFN, nameBuffer) == 0)
                 {
                     found = true;
                     break;
@@ -436,7 +457,7 @@ bool FAT::FindFile(LPCSTR path, LFNDirectoryEntry *entryOut)
             }
             else
             {
-                if (strncasecmp((const char *)entry.SFNEntry.Name, shortName, 11) == 0)
+                if (strncmp((const char *)entry.SFNEntry.Name, shortName, 11) == 0)
                 {
                     found = true;
                     break;
@@ -499,7 +520,7 @@ bool FAT::FindFileInDir(File *dir, LPCSTR name, LFNDirectoryEntry *entryOut)
     {
         if (entry.IsLFN)
         {
-            if (strcasecmp(entry.LFN, nameBuffer) == 0)
+            if (strcmp(entry.LFN, nameBuffer) == 0)
             {
                 *entryOut = entry;
                 return true;
@@ -507,7 +528,7 @@ bool FAT::FindFileInDir(File *dir, LPCSTR name, LFNDirectoryEntry *entryOut)
         }
         else
         {
-            if (strncasecmp((LPCSTR)entry.SFNEntry.Name, shortName, 11) == 0)
+            if (strncmp((LPCSTR)entry.SFNEntry.Name, shortName, 11) == 0)
             {
                 *entryOut = entry;
                 return true;
@@ -647,8 +668,10 @@ bool FAT::CreateEntry(LPCSTR path, bool isDirectory, File *fileOut)
         path++;
 
     File current = data->rootDirectory;
+    File parent;
+    char EntryParentName[FAT_MAX_FILE_NAME_SIZE];
 
-    char pathCopy[FAT_MAX_FILE_NAME_SIZE];
+    char pathCopy[FAT_MAX_PATH_SIZE];
     strncpy(pathCopy, path, sizeof(pathCopy) - 1);
 
     char *segment = strtok(pathCopy, "/\\");
@@ -657,6 +680,11 @@ bool FAT::CreateEntry(LPCSTR path, bool isDirectory, File *fileOut)
     while (segment)
     {
         nextSegment = strtok(nullptr, "/\\"); // nullptr is passed because strtok saves the string passed in the latest call with a non-nullptr first arg
+
+        if(!IsValidEntryName(segment)) {
+            fprintf(stderr, "[FAT32] [ERROR]: Invalid segment name %s\n", segment);
+            return false;
+        }
 
         char shortName[11];
 
@@ -687,6 +715,7 @@ bool FAT::CreateEntry(LPCSTR path, bool isDirectory, File *fileOut)
             newEntry.SFNEntry.FirstClusterHigh = 0;
             newEntry.SFNEntry.FirstClusterLow = 0;
             newEntry.SFNEntry.FileSize = 0;
+            SetEntryTime(&newEntry.SFNEntry, true);
 
             if (!CreateDirectoryEntry(&current, segment, &newEntry))
             {
@@ -711,6 +740,10 @@ bool FAT::CreateEntry(LPCSTR path, bool isDirectory, File *fileOut)
                 entry.SFNEntry._Reserved = 0;
                 entry.SFNEntry.FirstClusterHigh = newEntry.SFNEntry.FirstClusterHigh;
                 entry.SFNEntry.FirstClusterLow = newEntry.SFNEntry.FirstClusterLow;
+                entry.SFNEntry.CreationDate = newEntry.SFNEntry.CreationDate;
+                entry.SFNEntry.CreationTime = newEntry.SFNEntry.CreationTime;
+                entry.SFNEntry.LastModifiedDate = newEntry.SFNEntry.LastModifiedDate;
+                entry.SFNEntry.LastModifiedTime = newEntry.SFNEntry.LastModifiedTime;
 
                 if (!CreateDirectoryEntry(fileOut, ".", &entry))
                 {
@@ -721,12 +754,72 @@ bool FAT::CreateEntry(LPCSTR path, bool isDirectory, File *fileOut)
                 memcpy(entry.SFNEntry.Name, "..         ", 11);
                 entry.SFNEntry.FirstClusterLow = (m_uint16_t)(current.FirstCluster & 0xFFFF);
                 entry.SFNEntry.FirstClusterHigh = (m_uint16_t)((current.FirstCluster >> 16) & 0xFFFF);
+                entry.SFNEntry.CreationDate = current.fileEntry.SFNEntry.CreationDate;
+                entry.SFNEntry.CreationTime = current.fileEntry.SFNEntry.CreationTime;
+                entry.SFNEntry.LastModifiedDate = current.fileEntry.SFNEntry.LastModifiedDate;
+                entry.SFNEntry.LastModifiedTime = current.fileEntry.SFNEntry.LastModifiedTime;
 
                 if (!CreateDirectoryEntry(fileOut, "..", &entry))
                 {
                     fprintf(stderr, "[FAT32] [ERROR]: Failed to create directory entry\n");
                     return false;
                 }
+            }
+
+            if(current.FirstCluster == ebr->RootDirCluster) return true; // Cant update root dir timestamps
+
+            // Update directory in which entry was created main entry, located in it's parent.
+
+            char shortName[11] = {};
+            GetShortName(EntryParentName, shortName);
+
+            ResetPos(&parent);
+
+            LFNDirectoryEntry nextEntry;
+            bool found = false;
+            while(ReadEntry(&parent, &nextEntry))
+            {
+                if (nextEntry.IsLFN)
+                {
+                    if (strcmp(nextEntry.LFN, EntryParentName) == 0)
+                    {
+                        found = true;
+                        break;
+                    }
+                }
+                else
+                {
+                    if (strncmp((const char *)nextEntry.SFNEntry.Name, shortName, 11) == 0)
+                    {
+                        found = true;
+                        break;
+                    }
+                }
+            }
+
+            if(!found) {
+                fprintf(stderr, "Failed to find parent directory's directory entry\n");
+                return false;
+            }
+
+            uint8_t buffer[SECTOR_SIZE];
+
+            m_uint64_t position = parent.Position - sizeof(DirectoryEntry);
+            Seek(&parent, position);
+
+            if(!gpt->ReadSectors(ClusterToLba(parent.CurrentCluster) + parent.CurrentSectorInCluster, 1, buffer))
+            {
+                fprintf(stderr, "[FAT32] [ERROR]: Failed to read from DISK\n");
+                return false;
+            }
+
+            DirectoryEntry* entryInBuffer = reinterpret_cast<DirectoryEntry*>(buffer + position % SECTOR_SIZE);
+            SetEntryTime(entryInBuffer, true);
+
+            if(!gpt->WriteSectors(ClusterToLba(parent.CurrentCluster) + parent.CurrentSectorInCluster, 1, buffer))
+            {
+                fprintf(stderr, "[FAT32] [ERROR]: Failed to write to DISK\n");
+                return false;
             }
 
             return true;
@@ -745,10 +838,18 @@ bool FAT::CreateEntry(LPCSTR path, bool isDirectory, File *fileOut)
                 return false;
             }
 
+            parent = current;
+            if(entry.IsLFN) strncpy(EntryParentName, entry.LFN, FAT_MAX_FILE_NAME_SIZE);
+            else {
+                char nameBuffer[11];
+                memcpy(nameBuffer, entry.SFNEntry.Name, 11);
+                strncpy(EntryParentName, nameBuffer, 11);
+            }
             current.FirstCluster = ((m_uint32_t)entry.SFNEntry.FirstClusterHigh << 16) | entry.SFNEntry.FirstClusterLow;
             current.CurrentCluster = current.FirstCluster;
             current.Position = 0;
             current.IsDirectory = true;
+            current.fileEntry = entry;
         }
 
         segment = nextSegment;
@@ -1093,14 +1194,16 @@ bool FAT::DeleteEntry(LPCSTR path, bool isDirectory)
         path++;
 
     File parentDir;
+    bool updateModif = true;
+    char parentPath[FAT_MAX_PATH_SIZE];
 
     if (strpbrk(path, "/\\") != nullptr)
     {
-        char tmpPath[FAT_MAX_FILE_NAME_SIZE];
-        strncpy(tmpPath, path, FAT_MAX_FILE_NAME_SIZE);
-        tmpPath[FAT_MAX_FILE_NAME_SIZE - 1] = '\0';
+        char tmpPath[FAT_MAX_PATH_SIZE];
+        strncpy(tmpPath, path, FAT_MAX_PATH_SIZE);
+        tmpPath[FAT_MAX_PATH_SIZE - 1] = '\0';
 
-        size_t len = strlen(path);
+        size_t len = strlen(tmpPath);
 
         for (int i = (int)len; i > 0; i--)
         {
@@ -1116,6 +1219,21 @@ bool FAT::DeleteEntry(LPCSTR path, bool isDirectory)
         {
             fprintf(stderr, "[FAT32] [ERROR]: Failed to open directory %s\n", tmpPath);
             return false;
+        }
+
+        // Open parent's parent(unless parent is the root directory)
+
+        if(parentDir.FirstCluster == ebr->RootDirCluster) updateModif = false;
+        else {
+            strncpy(parentPath, tmpPath, FAT_MAX_PATH_SIZE);
+
+            size_t parentLen = strlen(parentPath);
+
+            while(parentLen > 1 && (parentPath[parentLen - 1] == '\\' || parentPath[parentLen - 1] == '/')) parentPath[--parentLen] = '\0';
+            char* last = strrchr(parentPath, '\\');
+            if(last == nullptr) last = strrchr(parentPath, '/');
+            if(last == parentPath) last[1] = '\0';
+            else last[0] = '\0';
         }
     }
     else
@@ -1198,7 +1316,91 @@ bool FAT::DeleteEntry(LPCSTR path, bool isDirectory)
         }
     }
 
-    return true;
+    if(!updateModif) return true;
+
+    // Find parent directory entry inside it's own parent
+
+    File temp = data->rootDirectory;
+    File *current = &temp;
+    LFNDirectoryEntry entry;
+
+    path = parentPath;
+
+    while (*path)
+    {
+        LPCSTR delim = strpbrk(path, "/\\");
+        size_t len = delim ? (size_t)(delim - path) : strlen(path);
+
+        char nameBuffer[FAT_MAX_PATH_SIZE] = {};
+        strncpy(nameBuffer, path, len);
+        nameBuffer[len] = '\0';
+
+        char shortName[11] = {};
+        GetShortName(nameBuffer, shortName);
+
+        bool found = false;
+        ResetPos(current);
+
+        while (ReadEntry(current, &entry))
+        {
+            if (entry.IsLFN)
+            {
+                if (strcmp(entry.LFN, nameBuffer) == 0)
+                {
+                    found = true;
+                    break;
+                }
+            }
+            else
+            {
+                if (strncmp((const char *)entry.SFNEntry.Name, shortName, 11) == 0)
+                {
+                    found = true;
+                    break;
+                }
+            }
+        }
+
+        if (!found)
+            return false;
+
+        if (delim)
+        {
+            if (!(entry.SFNEntry.Attribs & FileAttribs::DIRECTORY))
+                return false;
+
+            current->FirstCluster = ((m_uint32_t)entry.SFNEntry.FirstClusterHigh << 16) | entry.SFNEntry.FirstClusterLow;
+            current->CurrentCluster = current->FirstCluster;
+            current->Position = 0;
+            current->IsDirectory = true;
+
+            path = delim + 1;
+        }
+        else
+        {
+            if(current->FirstCluster == ebr->RootDirCluster) return true;
+            m_uint64_t position = current->Position - sizeof(DirectoryEntry);
+            Seek(current, position);
+
+            if(!gpt->ReadSectors(ClusterToLba(current->CurrentCluster) + current->CurrentSectorInCluster, 1, buffer))
+            {
+                fprintf(stderr, "[FAT32] [ERROR]: Failed to read from DISK\n");
+                return false;
+            }
+
+            DirectoryEntry* entry = reinterpret_cast<DirectoryEntry*>(buffer + position % SECTOR_SIZE);
+            SetEntryTime(entry);
+
+            if(!gpt->WriteSectors(ClusterToLba(current->CurrentCluster) + current->CurrentSectorInCluster, 1, buffer))
+            {
+                fprintf(stderr, "[FAT32] [ERROR]: Failed to write to DISK\n");
+                return false;
+            }
+
+            return true;
+        }
+    }
+    return false;
 }
 
 bool FAT::DeleteDir(LPCSTR path)
@@ -1247,6 +1449,12 @@ bool FAT::RenameEntry(LPCSTR path, LPCSTR newName, bool isDirectory, File *oldFi
 
     if (path[0] == '/' || path[0] == '\\')
         path++;
+
+
+    if(!IsValidEntryName(newName)) {
+        fprintf(stderr, "[FAT32] [ERROR]: Invalid new name %s\n", newName);
+        return false;
+    }
 
     File parentDir;
     if (strpbrk(path, "/\\") != nullptr)
@@ -1389,6 +1597,7 @@ bool FAT::RenameEntry(LPCSTR path, LPCSTR newName, bool isDirectory, File *oldFi
     sfnEntry->FirstClusterHigh = oldEntry.SFNEntry.FirstClusterHigh;
     sfnEntry->FirstClusterLow = oldEntry.SFNEntry.FirstClusterLow;
     sfnEntry->FileSize = oldEntry.SFNEntry.FileSize;
+    SetEntryTime(sfnEntry);
 
     ResetPos(&parentDir);
 
@@ -1687,6 +1896,7 @@ bool FAT::CopyEntry(LPCSTR path, LPCSTR newPath, bool isDirectory, File *newFile
             entry->FirstClusterLow = newFile->FirstCluster & 0xFFFF;
             entry->FirstClusterHigh = (newFile->FirstCluster >> 16) & 0xFFFF;
             entry->FileSize = isDirectory ? 0 : origFile.Size;
+            SetEntryTime(entry, true);
 
             newFile->fileEntry.SFNEntry = *entry;
             newFile->Size = entry->FileSize;
@@ -1755,7 +1965,7 @@ bool FAT::SetFileData(LPCSTR filePath, void *data, m_uint32_t count)
     File file;
     if (!OpenFile(filePath, &file))
     {
-        fprintf(stderr, "[FAT32] [ERROR]: Failed to open file %s", filePath);
+        fprintf(stderr, "[FAT32] [ERROR]: Failed to open file %s\n", filePath);
         return false;
     }
 
@@ -1823,7 +2033,7 @@ bool FAT::SetFileData(LPCSTR filePath, void *data, m_uint32_t count)
     file.FirstCluster = firstCluster;
     file.Size = count;
 
-    // TODO: Update DirectoryEntry
+    // Update DirectoryEntry
 
     File parentDir;
     char parentName[FAT_MAX_PATH_SIZE], fileName[FAT_MAX_FILE_NAME_SIZE];
@@ -1888,6 +2098,7 @@ bool FAT::SetFileData(LPCSTR filePath, void *data, m_uint32_t count)
             entry->FileSize = file.Size;
             entry->FirstClusterLow = (m_uint16_t)(file.FirstCluster & 0xFFFF);
             entry->FirstClusterHigh = (m_uint16_t)((file.FirstCluster >> 16) & 0xFFFF);
+            SetEntryTime(entry);
 
             if (!gpt->WriteSectors(lba, 1, &buffer))
             {
@@ -1920,6 +2131,61 @@ void FAT::FreeClusterChain(m_uint32_t startCluster)
 
         current = next;
     }
+}
+
+static inline m_uint16_t PackTime(m_uint8_t h, m_uint8_t m, m_uint8_t s)
+{
+    return (h << 11) | (m << 5) | (s / 2);
+}
+
+static inline m_uint16_t PackDate(m_uint16_t y, m_uint8_t mo, m_uint8_t d)
+{
+    return ((y - 1980) << 9) | (mo << 5) | d;
+}
+
+void FAT::SetEntryTime(DirectoryEntry* entry, bool create, bool access)
+{
+    TimeDateDesc td = GetCurrentTimeDate();
+
+    m_uint16_t date = PackDate(td.Year, td.Month, td.Day);
+    m_uint16_t time = PackTime(td.Hour, td.Minute, td.Second);
+    m_uint8_t tenth = static_cast<m_uint8_t>(td.millisecond / 10);
+
+    if(create)
+    {
+        entry->CreationDate = date;
+        entry->CreationTime = time;
+        entry->CreatedTimeTenths = tenth;
+    }
+    if(access)
+    {
+        entry->LastAccessedDate = date;
+    }
+    entry->LastModifiedDate = date;
+    entry->LastModifiedTime = time;
+}
+
+TimeDateDesc FAT::GetCurrentTimeDate()
+{
+    auto now = std::chrono::system_clock::now();
+    auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()) % 1000;
+    std::time_t t = std::chrono::system_clock::to_time_t(now);
+
+    std::tm tm = *std::gmtime(&t);
+
+    TimeDateDesc out = {};
+
+    out.Year = static_cast<m_uint16_t>(tm.tm_year + 1900);
+    out.Month = static_cast<m_uint8_t>(tm.tm_mon + 1);
+    out.Day = static_cast<m_uint8_t>(tm.tm_mday);
+
+    out.Hour = static_cast<m_uint8_t>(tm.tm_hour);
+    out.Minute = static_cast<m_uint8_t>(tm.tm_min);
+    out.Second = static_cast<m_uint8_t>(tm.tm_sec);
+
+    out.millisecond = static_cast<uint16_t>(ms.count());
+
+    return out;
 }
 
 FAT::~FAT()

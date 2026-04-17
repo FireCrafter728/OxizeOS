@@ -1,4 +1,4 @@
-CXXFLAGS += -fno-exceptions -fno-rtti -fPIC -I. -fshort-wchar -include global.hpp
+CXXFLAGS += -O0 -g -fno-exceptions -fno-rtti -fPIC -I. -fshort-wchar -include global.hpp
 LINKFLAGS += -pie
 
 SOURCES_CPP=$(shell find . -name '*.cpp')

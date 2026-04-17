@@ -1,21 +1,10 @@
 {
     "configurations": [
         {
-            "name": "Linux",
-            "includePath": [
-                "${workspaceFolder}/**"
-            ],
-            "defines": [],
-            "compilerPath": "/usr/bin/clang",
-            "cStandard": "c17",
-            "cppStandard": "c++17",
-            "intelliSenseMode": "linux-clang-x64"
-        },
-        {
             "name": "TskSchl",
             "includePath": [
-                "${workspaceFolder}/src/tskschl/Include/**",
-                "${workspaceFolder}/lib/OxizeOS/**"
+                "${workspaceFolder}/src/tskschl/Include/",
+                "${workspaceFolder}/lib/OxizeOS/"
             ],
             "compilerPath": "${workspaceFolder}/toolchain/x86_64-elf/bin/x86_64-elf-gcc",
             "cStandard": "c23",
@@ -28,7 +17,7 @@
         {
             "name": "GPT",
             "includePath": [
-                "${workspaceFolder}/tools/gpt/**"
+                "${workspaceFolder}/tools/gpt/"
             ],
             "compilerPath": "/usr/bin/gcc",
             "cStandard": "c23",
@@ -47,7 +36,7 @@
         {
             "name": "Image",
             "includePath": [
-                "${workspaceFolder}/tools/Image/Include/**"
+                "${workspaceFolder}/tools/Image/Include/"
             ],
             "compilerPath": "/usr/bin/gcc",
             "cStandard": "c23",
@@ -55,6 +44,19 @@
             "intelliSenseMode": "linux-gcc-x64",
             "forcedInclude": [
                 "${workspaceFolder}/tools/Image/Include/Global.hpp"
+            ]
+        },
+        {
+            "name": "FAT32",
+            "includePath": [
+                "${workspaceFolder}/tools/fat/"
+            ],
+            "compilerPath": "/usr/bin/gcc",
+            "cStandard": "c23",
+            "cppStandard": "c++23",
+            "intelliSenseMode": "linux-gcc-x64",
+            "forcedInclude": [
+                "${workspaceFolder}/tools/fat/global.hpp"
             ]
         }
     ],

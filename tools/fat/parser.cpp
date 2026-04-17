@@ -176,6 +176,8 @@ OperationDesc Parser::getOperation()
         {"copyfileto", Operations::CopyFileTo, 2, {"Enter file to copy path: ", "Enter path where to copy file: "}},
 
         {"copyfilefrom", Operations::CopyFileFrom, 2, {"Enter file to copy path: ", "Enter path where to copy file: "}},
+
+        {"makefs", Operations::MakeFS, 1, {"Enter new volume label(max 11 chars, all uppercase): "}},
     };
 
     for (const auto &op : operations)
@@ -232,7 +234,7 @@ OperationDesc Parser::getOperationScriptingMode(int argc, char **argv, const Scr
 
                     {"dir", Operations::ListContents},
 
-                    {"createfile", Operations::CreateFile},
+                    {"mkfile", Operations::CreateFile},
 
                     {"mkdir", Operations::CreateDirectory},
 

@@ -58,3 +58,8 @@ updated it to use the new **GPT** formatting tool instead of gdisk
 
 - Redesigned the image configuration file from JSON to a custom one. documentation can be found in `resources/docs/image.md`
 - Reimplemented the entire `Image` tool, removing the old one written in rust and parsing JSON to one written in C++ that uses a custom configuration format
+
+## 2026-04-17 1.0.1.0009 FAT32 Driver refinement
+
+- Added better label support by making MKFS also add a VOLUME_ID entry to the root directory
+- Added support for timestamps, where previously they were skipped, and now added and updated wherever needed
