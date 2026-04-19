@@ -1,16 +1,16 @@
 include scripts/config.mk
 
-.PHONY: all bootmgr tskschl tools tools-fat tools-image tools-gpt toolchain image dir clean
+.PHONY: all bootmgr syskrnl64 tools tools-fat tools-image tools-gpt toolchain image dir clean
 
-all: dir bootmgr tskschl tools image
+all: dir bootmgr syskrnl64 tools image
 
 include scripts/toolchain-gcc.mk
 
 bootmgr:
 	$(MAKE) -C $(SRC)/BootManager
 
-tskschl:
-	$(MAKE) -C $(SRC)/tskschl
+syskrnl64:
+	$(MAKE) -C $(SRC)/syskrnl64
 
 tools: tools-fat tools-image tools-gpt
 
@@ -23,7 +23,7 @@ tools-fat:
 tools-gpt:
 	$(MAKE) -C tools/gpt
 
-image: bootmgr tskschl tools
+image: bootmgr syskrnl64 tools
 	$(OUTPUT)/image image.conf
 
 dir:

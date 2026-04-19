@@ -26,23 +26,23 @@ extern "C" EFI_STATUS EFIAPI efi_main(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE* 
 		HaltSystem();
 	}
 
-	EFI_FILE_PROTOCOL* TskSchl = fs.OpenFile(ESP, L"\\EFI\\OxizeOS\\tskschl.exe");
-	if(!TskSchl) {
-		System->ConOut->OutputString(System->ConOut, (CHAR16*)L"Failed to find \\EFI\\OxizeOS\\tskschl.exe\r\n");
+	EFI_FILE_PROTOCOL* SysKrnl64 = fs.OpenFile(ESP, L"\\EFI\\OxizeOS\\syskrnl64.exe");
+	if(!SysKrnl64) {
+		System->ConOut->OutputString(System->ConOut, (CHAR16*)L"Failed to find \\EFI\\OxizeOS\\syskrnl64.exe\r\n");
 		HaltSystem();
 	}
 
 	BootMgr::ELF::ELF elf;
 	BootMgr::ELF::ELF_Handle elfHandle;
-	elf.CreateHandle(&elfHandle, TskSchl, &fs);
+	elf.CreateHandle(&elfHandle, SysKrnl64, &fs);
 
 	SystemTable* sysTable = sysTableBuilder.BuildSystemTable(elfHandle.LoadPages);
 	if(!sysTable) {
 		printf("[OXIZEOS-BOOTMGR] [ERROR]: Failed to build a System Table for the kernel: %llu\r\n", sysTableBuilder.GetLastStatus());
 		HaltSystem();
 	}
-	elf.SetLoadAddr(&elfHandle, sysTable->memLayout.TskSchlPhysAddr);
-	elf.SetVirtLoadAddr(&elfHandle, sysTable->memLayout.TskSchlPhysAddr - sysTableBuilder.getRegionStartAddr() + BootMgr::MapAddr);
+	elf.SetLoadAddr(&elfHandle, sysTable->memLayout.SysKrnl64PhysAddr);
+	elf.SetVirtLoadAddr(&elfHandle, sysTable->memLayout.SysKrnl64PhysAddr - sysTableBuilder.getRegionStartAddr() + BootMgr::MapAddr);
 
 	elf.LoadImage(&elfHandle);
 
@@ -66,9 +66,9 @@ extern "C" EFI_STATUS EFIAPI efi_main(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE* 
 
 	typedef void (*KrnlExec)(uintptr_t Entry, SystemTable* systemTable, uint64_t CR3, uintptr_t StackAddr);
 	KrnlExec krnl = (KrnlExec)krnlExecLoadAddr;
-	uintptr_t tskschlVirt = (elfHandle.LoadAddr + elfHandle.header.EntryOffset - elfHandle.extraOffset) - sysTableBuilder.getRegionStartAddr() + BootMgr::MapAddr;
+	uintptr_t SysKrnl64Virt = (elfHandle.LoadAddr + elfHandle.header.EntryOffset - elfHandle.extraOffset) - sysTableBuilder.getRegionStartAddr() + BootMgr::MapAddr;
 
-	krnl(tskschlVirt, reinterpret_cast<SystemTable*>(reinterpret_cast<uintptr_t>(sysTable) - sysTableBuilder.getRegionStartAddr() + BootMgr::MapAddr), BootMgr::MAKE_CR3(sysTableBuilder.getPageTablesPhysAddr(), 0), sysTable->memLayout.StackAddr + sysTable->memLayout.StackPageCount * 0x1000);
+	krnl(SysKrnl64Virt, reinterpret_cast<SystemTable*>(reinterpret_cast<uintptr_t>(sysTable) - sysTableBuilder.getRegionStartAddr() + BootMgr::MapAddr), BootMgr::MAKE_CR3(sysTableBuilder.getPageTablesPhysAddr(), 0), sysTable->memLayout.StackAddr + sysTable->memLayout.StackPageCount * 0x1000);
 	
 	return EFI_DEVICE_ERROR;
 }

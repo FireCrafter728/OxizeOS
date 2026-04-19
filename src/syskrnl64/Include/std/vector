@@ -1,0 +1,142 @@
+#pragma once
+
+#include <stdint.hpp>
+#include <utility>
+#include <runtime.hpp>
+
+#include <Drivers/MMD/mmd.hpp>
+#include <Drivers/MMD/krnl.hpp>
+
+#ifndef BLOCK_COUNT
+#define BLOCK_COUNT(bytes) (((bytes) + 0xFFFULL) / 0x1000ULL)
+#endif
+
+namespace std
+{
+    template <typename T>
+    class vector
+    {
+    public:
+        vector() = default;
+        vector(size_t initialSize) {
+            reserve(initialSize);
+        }
+
+        vector(size_t initialSize, T initialEntry) {
+            reserve(initialSize);
+            for(size_t i = 0; i < initialSize; i++) new (&data[i]) T(initialEntry);
+            usedSize = initialSize;
+        }
+
+        ~vector() {
+            clear();
+            if(data) SysKrnl64::MMD::mmd->free(data, BLOCK_COUNT(reservedSize * sizeof(T)), SysKrnl64::MMD::MT_KRNL);
+        }
+
+        bool push_back(const T& value) {
+            if(usedSize == reservedSize) {
+                if(!relocate(reservedSize == 0 ? 4 : reservedSize * 2)) return false;
+            }
+            // new (&data[usedSize]) T(value);
+            memcpy(&data[usedSize], &value, sizeof(T));
+            usedSize++;
+            return true;
+        }
+
+        bool push_back(T&& value) {
+            if(usedSize == reservedSize) {
+                if(!relocate(reservedSize == 0 ? 4 : reservedSize * 2)) return false;
+            }
+
+            // new (&data[usedSize]) T(std::move(value));
+            memcpy(&data[usedSize], &value, sizeof(T));
+            usedSize++;
+            return true;
+        }
+
+        template <typename ...Args>
+        T& emplace_back(Args&&... args) {
+            if(usedSize == reservedSize) {
+                if(!relocate(reservedSize == 0 ? 4 : reservedSize * 2)) return nullptr;
+            }
+            new (&data[usedSize]) T(std::forward<Args>(args)...);
+            return data[usedSize++];
+        }
+
+        void pop_back() {
+            if(usedSize > 0) {
+                usedSize--;
+                data[usedSize].~T();
+            }
+        }
+
+        void clear() {
+            for (size_t i = 0; i < usedSize; i++) data[i].~T();
+            usedSize = 0;
+        }
+
+        void reserve(size_t newCapacity) {
+            if(newCapacity > reservedSize) relocate(newCapacity);
+        }
+
+        bool resize(size_t newSize) {
+            if(newSize < usedSize) {
+                for(size_t i = newSize; i < usedSize; i++) data[i].~T();
+                usedSize = newSize;
+                return false;
+            }
+
+            if(newSize > reservedSize) {
+                if(!relocate(newSize)) return false;
+            }
+
+            for(size_t i = usedSize; i < newSize; i++) new (&data[i]) T();
+
+            usedSize = newSize;
+
+            return true;
+        }
+
+        T& operator[](size_t i) { return data[i]; }
+        const T& operator[](size_t i) const { return data[i]; }
+        
+        size_t size() const {
+            return usedSize;
+        }
+
+        size_t capacity() const {
+            return reservedSize;
+        }
+
+        T* begin() {
+            return data;
+        }
+
+        T* end() {
+            return data + usedSize;
+        }
+    private:
+        T* data = nullptr;
+        size_t usedSize = 0;
+        size_t reservedSize = 0;
+
+        bool relocate(size_t newCapacity) {
+            size_t newBlocks = BLOCK_COUNT(newCapacity * sizeof(T));
+            T* newData = reinterpret_cast<T*>(SysKrnl64::MMD::mmd->malloc(newBlocks, SysKrnl64::MMD::MT_KRNL));
+            if(!newData) return false;
+
+            for(size_t i = 0; i < usedSize; i++)
+            {
+                new (&newData[i]) T(std::move(data[i]));
+                data[i].~T();
+            }
+
+            if(data) SysKrnl64::MMD::mmd->free(data, BLOCK_COUNT(reservedSize * sizeof(T)), SysKrnl64::MMD::MT_KRNL);
+
+            data = newData;
+            reservedSize = newCapacity;
+
+            return true;
+        }
+    };
+}

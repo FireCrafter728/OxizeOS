@@ -10,7 +10,7 @@ namespace BootMgr
 		class SysTable
 		{
 		public:
-			SystemTable* BuildSystemTable(size_t TskSchlPageCount, EFI_SYSTEM_TABLE* sysTable = gSystem);
+			SystemTable* BuildSystemTable(size_t SysKrnl64PageCount, EFI_SYSTEM_TABLE* sysTable = gSystem);
 			constexpr EFI_STATUS GetLastStatus() { return lastStatus; }
 			constexpr void* getEfiGOP() { return gop; }
 			constexpr uintptr_t getPageTablesPhysAddr() { return PageTablesPhys; }

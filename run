@@ -66,7 +66,10 @@ elif [[ "$OPERATION" == "qemu" ]]; then
     qemu-system-x86_64 -drive if=none,format=raw,file=$DISK_PATH,id=disk0 \
                        -device ahci,id=ahci \
                        -device ide-hd,bus=ahci.0,drive=disk0 \
+                       -drive if=pflash,format=raw,readonly=on,file=lib/UEFI/OVMF/OVMF_CODE.fd \
+                       -drive if=pflash,format=raw,file=lib/UEFI/OVMF/OVMF_VARS.fd \
                        -bios lib/UEFI/OVMF/OVMF.fd \
+                       -smp 4 -cpu qemu64,x2apic=on \
                        -net none -machine q35 -m 1024M -vga std -display sdl \
                        -debugcon file:logfile.log -monitor stdio
     exit 0

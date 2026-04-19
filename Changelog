@@ -63,3 +63,14 @@ updated it to use the new **GPT** formatting tool instead of gdisk
 
 - Added better label support by making MKFS also add a VOLUME_ID entry to the root directory
 - Added support for timestamps, where previously they were skipped, and now added and updated wherever needed
+
+## 2026-04-19 1.0.1.0010 Kernel and IRQ implementation
+
+- Changed the task scheduler to be a part of the kernel instead of being a standalone executable that runs before the kernel(design only, task scheduler not yet implemented)
+- Renamed the task scheduler to **SysKrnl64**
+- Removed the i686 toolchain build entries from `scripts/toolchain-gcc.mk`, as I don't plan to use or integrate it
+- Added a vector class and some extra utilities from STD namespace to SysKrnl64
+- Made the project no longer swear-free >:]
+- Added an **APIC** driver and capable of handling **X2APIC** & multiple IOAPIC devices
+- Added an **IRQ** dispatcher class and a IntHandler class where **IRQ** handlers will be placed
+- Updated the `run` script, specifically the **qemu** part to use the new OVMF_CODE.fd & OVMF_VARS.fd binary files

@@ -54,8 +54,8 @@ struct KernelMemoryLayout
 	size_t StackPageCount;
 	uintptr_t DataAreaAddr;
 	size_t DataAreaPageCount;
-	uintptr_t TskSchlPhysAddr;
-	uintptr_t TskSchlLoadSize;
+	uintptr_t SysKrnl64PhysAddr;
+	uintptr_t SysKrnl64LoadSize;
 	size_t KrnlMemRegionSize;
 	uintptr_t regionStartPhys;
 	uintptr_t NextPageTableFreePtr;

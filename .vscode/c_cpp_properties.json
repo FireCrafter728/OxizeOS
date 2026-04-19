@@ -1,17 +1,21 @@
 {
     "configurations": [
         {
-            "name": "TskSchl",
+            "name": "SysKRNL64",
             "includePath": [
-                "${workspaceFolder}/src/tskschl/Include/",
+                "${workspaceFolder}/src/syskrnl64/Include/",
+                "${workspaceFolder}/src/syskrnl64/Include/std",
                 "${workspaceFolder}/lib/OxizeOS/"
             ],
             "compilerPath": "${workspaceFolder}/toolchain/x86_64-elf/bin/x86_64-elf-gcc",
             "cStandard": "c23",
             "cppStandard": "c++23",
             "intelliSenseMode": "linux-gcc-x64",
+            "compilerArgs": [
+                " -nostdinc", " -nostdinc++"
+            ],
             "forcedInclude": [
-                "${workspaceFolder}/src/tskschl/Include/Global.hpp"
+                "${workspaceFolder}/src/syskrnl64/Include/Global.hpp"
             ]
         },
         {
@@ -57,6 +61,22 @@
             "intelliSenseMode": "linux-gcc-x64",
             "forcedInclude": [
                 "${workspaceFolder}/tools/fat/global.hpp"
+            ]
+        },
+        {
+            "name": "BootMgr",
+            "includePath": [
+                "${workspaceFolder}/src/BootManager/Include",
+                "${workspaceFolder}/src/BootManager/Include/std",
+                "${workspaceFolder}/lib/OxizeOS/",
+                "${workspaceFolder}/lib/UEFI/MdePkg/Include/"
+            ],
+            "compilerPath": "${workspaceFolder}/toolchain/x86_64-elf/bin/x86_64-elf-gcc",
+            "cStandard": "c23",
+            "cppStandard": "c++23",
+            "intelliSenseMode": "linux-gcc-x64",
+            "forcedInclude": [
+                "${workspaceFolder}/src/BootManager/Include/Global.hpp"
             ]
         }
     ],

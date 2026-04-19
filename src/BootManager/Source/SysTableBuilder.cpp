@@ -2,7 +2,7 @@
 
 using namespace BootMgr::SysTable;
 
-SystemTable* SysTable::BuildSystemTable(size_t TskSchlPageCount, EFI_SYSTEM_TABLE* gSystem)
+SystemTable* SysTable::BuildSystemTable(size_t SysKrnl64PageCount, EFI_SYSTEM_TABLE* gSystem)
 {
 	// Get UEFI Memory map
 	efiMemmap = nullptr;
@@ -79,7 +79,7 @@ SystemTable* SysTable::BuildSystemTable(size_t TskSchlPageCount, EFI_SYSTEM_TABL
 	// Pages needed to store custom memory map + guard page
 	// 64MiB Kernel data area + guard page
 	// Pages needed for the task scheduler
-	const size_t totalBufferSize = PageTableReservePages + 1 + 128 + 1 + SysTablePages + 1 + bufPages + 1 + 0x4000 + 1 + TskSchlPageCount;
+	const size_t totalBufferSize = PageTableReservePages + 1 + 128 + 1 + SysTablePages + 1 + bufPages + 1 + 0x4000 + 1 + SysKrnl64PageCount;
 
 	// Allocate another buffer with space enough for all of our regions for our own memory table
 
@@ -117,8 +117,8 @@ SystemTable* SysTable::BuildSystemTable(size_t TskSchlPageCount, EFI_SYSTEM_TABL
 	uintptr_t DataRegionAddr = regionStart + regionOffset * 0x1000;
 	regionOffset += 0x4000;
 	GuardPages[4] = regionOffset++;
-	uintptr_t TskSchlLoadAddr = regionStart + regionOffset * 0x1000;
-	regionOffset += TskSchlPageCount;
+	uintptr_t SysKrnl64LoadAddr = regionStart + regionOffset * 0x1000;
+	regionOffset += SysKrnl64PageCount;
 
 	// Requery the UEFI Memory map to reflect the latest AllocatePages modification
 
@@ -429,8 +429,8 @@ SystemTable* SysTable::BuildSystemTable(size_t TskSchlPageCount, EFI_SYSTEM_TABL
 	System->memLayout.StackPageCount = 128;
 	System->memLayout.DataAreaAddr = DataRegionAddr - regionStart + MapAddr;
 	System->memLayout.DataAreaPageCount = 0x4000;
-	System->memLayout.TskSchlPhysAddr = TskSchlLoadAddr;
-	System->memLayout.TskSchlLoadSize = TskSchlPageCount * 0x1000;
+	System->memLayout.SysKrnl64PhysAddr = SysKrnl64LoadAddr;
+	System->memLayout.SysKrnl64LoadSize = SysKrnl64PageCount * 0x1000;
 	System->memLayout.KrnlMemRegionSize = regionOffset * 0x1000;
 	System->memLayout.regionStartPhys = regionStart;
 	System->memLayout.NextPageTableFreePtr = reinterpret_cast<uintptr_t>(freeListHead);

@@ -30,7 +30,7 @@ f.write("\nvoid ISR_InitializeGates()\n")
 f.write("{\n")
 
 for i in range(256):
-    f.write(f"\tTskSchl::IDT::IDT::SetGate({i}, reinterpret_cast<void*>(ISR{i}), GDT_64BIT_RING0_CODESEG, IDT_FLAG_RING0 | IDT_FLAG_GATE_64BIT_INT);\n")
+    f.write(f"\tSysKrnl64::IDT::IDT::SetGate({i}, reinterpret_cast<void*>(ISR{i}), GDT_64BIT_RING0_CODESEG, IDT_FLAG_RING0 | IDT_FLAG_GATE_64BIT_INT);\n")
 
 f.write("}\n")
 

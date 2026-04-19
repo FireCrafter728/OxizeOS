@@ -27,25 +27,11 @@ export X64_TARGET_LDXX=$(X64_TARGET)-g++
 export X64_TARGET_AR=$(X64_TARGET)-ar
 export X64_TARGET_ASM=nasm
 export X64_TARGET_CFLAGS= -std=c23 -Wall -Wextra -O2 -ffreestanding -nostdlib -nostdinc -fPIC -m64
-export X64_TARGET_CXXFLAGS= -std=c++23 -Wall -Wextra -O2 -ffreestanding -nostdlib -nostdinc -fPIC -m64
+export X64_TARGET_CXXFLAGS= -std=c++23 -Wall -Wextra -O2 -ffreestanding -nostdlib -nostdinc -nostdinc++ -fPIC -m64
 export X64_TARGET_ASMFLAGS=
 export X64_TARGET_LINKFLAGS=-nostdlib -pie
 export X64_TARGET_ARFLAGS=
 export X64_TARGET_LIBS=-lgcc
-
-export I686_TARGET=i686-elf
-export I686_TARGET_CC=$(I686_TARGET)-gcc
-export I686_TARGET_CXX=$(I686_TARGET)-g++
-export I686_TARGET_LD=$(I686_TARGET)-gcc
-export I686_TARGET_LDXX=$(I686_TARGET)-g++
-export I686_TARGET_AR=$(I686_TARGET)-ar
-export I686_TARGET_ASM=nasm
-export I686_TARGET_CFLAGS= -std=c23 -Wall -Wextra -O2 -ffreestanding -nostdlib -nostdinc -fPIC -m32
-export I686_TARGET_CXXFLAGS= -std=c++23 -Wall -Wextra -O2 -ffreestanding -nostdlib -nostdinc -nostdinc++ -fPIC -m32
-export I686_TARGET_ASMFLAGS=
-export I686_TARGET_LINKFLAGS=-nostdlib -pie
-export I686_TARGET_ARFLAGS=
-export I686_TARGET_LIBS=-lgcc
 
 export MINGW_CXX=x86_64-w64-mingw32-g++
 export MINGW_LDXX=x86_64-w64-mingw32-g++
