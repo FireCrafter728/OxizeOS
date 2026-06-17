@@ -3,6 +3,6 @@
 
 void HaltSystem()
 {
-    printf("System Halted\r\n");
+    puts("System Halted\r\n");
     HaltSystemImpl();
 }

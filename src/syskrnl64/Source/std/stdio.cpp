@@ -2,6 +2,10 @@
 #include <io.hpp>
 #include <stdint.hpp>
 
+// ------------------ //
+// PRINTING FUNCTIONS //
+// ------------------ //
+
 void putc(char c)
 {
     outb(0xE9, c);
@@ -141,9 +145,15 @@ void vprintf(const char* fmt, va_list args)
                                 break;
 
                     case 'X':   radix = 16; sign = false; number = true; upper = true; break;
-                    case 'x':
-                    case 'p':   radix = 16; sign = false; number = true;
+                    case 'x':   radix = 16; sign = false; number = true;
                                 break;
+                    case 'p': 
+                    {
+                        uintptr_t ptr = reinterpret_cast<uintptr_t>(va_arg(args, void*));
+                        puts("0x");
+                        printf_unsigned(ptr, 16, true);
+                        break;
+                    }
 
                     case 'o':   radix = 8; sign = false; number = true;
                                 break;
@@ -198,4 +208,32 @@ void vprintf(const char* fmt, va_list args)
     }
 
     va_end(args);
+}
+
+// --------------------------- //
+// MEMORY MANAGEMENT FUNCTIONS //
+// --------------------------- //
+
+extern void* KernelAlloc(size_t size);
+extern void KernelFree(void* ptr);
+
+void* kmalloc(size_t size)
+{
+    return KernelAlloc(size);
+}
+
+void* kcalloc(size_t count, size_t size)
+{
+    size_t total = count * size;
+
+    void* ptr = kmalloc(total);
+    if(!ptr) return nullptr;
+
+    memset(ptr, 0, total);
+    return ptr;
+}
+
+void kfree(void* ptr)
+{
+    KernelFree(ptr);
 }

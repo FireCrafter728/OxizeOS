@@ -1,5 +1,12 @@
 #pragma once
 
+// |||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||| // 
+// |------------------------------------------------------------------| //
+// | OxizeOS Kernel Implementation                                    | //
+// | AHCI: Driver for managing the Advanced Host Controller Interface | //
+// |------------------------------------------------------------------| //
+// |||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||| //
+
 #include <stdint.hpp>
 
 #include <Drivers/PCIe/PCIe.hpp>
@@ -84,7 +91,7 @@ namespace SysKrnl64
         {
             uint32_t DataBaseAddress, DataBaseAddressUpper;
             uint32_t _Reserved;
-            uint32_t ByteCount;
+            uint32_t IOC_ByteCount;
         };
 
         struct PACK CommandTable
@@ -373,7 +380,7 @@ namespace SysKrnl64
             volatile HBACommandHeader* CLB;
             volatile uint8_t* FISReceiveBuffer;
             volatile size_t FISReceiveBufferSize;
-            volatile CommandTable* commandTables[32]; // Command table size is 4K
+            CommandTable* commandTables[32]; // Command table size is 4K
             volatile PortType type;
             uint8_t IdentifyBuffer[512];
         };

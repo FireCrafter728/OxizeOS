@@ -70,7 +70,21 @@ updated it to use the new **GPT** formatting tool instead of gdisk
 - Renamed the task scheduler to **SysKrnl64**
 - Removed the i686 toolchain build entries from `scripts/toolchain-gcc.mk`, as I don't plan to use or integrate it
 - Added a vector class and some extra utilities from STD namespace to SysKrnl64
-- Made the project no longer swear-free >:]
 - Added an **APIC** driver and capable of handling **X2APIC** & multiple IOAPIC devices
 - Added an **IRQ** dispatcher class and a IntHandler class where **IRQ** handlers will be placed
 - Updated the `run` script, specifically the **qemu** part to use the new OVMF_CODE.fd & OVMF_VARS.fd binary files
+
+## 2026-06-17 1.0.1.0011 Kernel Refractor and Memory Management
+- Added a physical memory allocator, which is a bitmap allocator for allocating physical memory in 4KiB blocks
+- Added a virtual memory allocator, which is a Red-Black tree range allocator that stores ranges describing the allocated / reserved regions, works in 4KiB blocks
+- Added a kernel heap allocator, which is similar to a linked-list allocator, but works in byte granularity and has headers before allocated memory to describe it's flags, length and the neighboring headers
+- Split the **SysKrnl64** `main()` function into `kernel_bootstrap()` and `kernel_main()` functions, where `kernel_bootstrap()` sets up the paging driver, interrupts, MSRs and the memory drivers, and then allocates a new stack(512KiB), and returns the pointer to the end of it, then the assembly entry point function updates RSP to the new stack and calls `kernel_main()` with the new stack
+- Removed the assembly `memset` implementation which was buggy, and swapped builtin `memcmp` and `memcpy` implementations to manual C++ implementations, with `memset` and `memcpy` using quad words for better speed
+- Added `kmalloc`, `kcalloc` and `kfree` functions to `stdio.hpp` for general purpose heap memory allocation
+- Fixed some bugs inside the AHCI driver that caused the byte count in PRDT entry be incorrect(off by 1) and not setting `fis->c` to 1
+- Fixed a bug in `vprintf` where %p was treated like a regular hex number, instead of a 64-bit address specifier
+- Removed the hardcoded 64MiB kernel data area, instead the virtual allocator will be used for kernel memory allocations
+- Made the bootstrap kernel stack from 512KiB to 32KiB, the kernel later allocates it's own with the virtual allocator
+- Added and integrated `std::expected`(C++23) to the kernel for better error handling
+- Refractored kernel headers to have descriptors about where the header is located and it's purpose
+- Added some extra comment refractoring to standard libraries

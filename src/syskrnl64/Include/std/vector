@@ -1,15 +1,24 @@
 #pragma once
 
+// ||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||| // 
+// |-------------------------------------------------------------------------------| //
+// | Minimal freestanding LIBSTDC++ Implementation for the OxizeOS kernel          | //
+// | VECTOR: Class for storing arrays dynamically with dynamic size and operations | //
+// |-------------------------------------------------------------------------------| //
+// ||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||| //
+
 #include <stdint.hpp>
 #include <utility>
 #include <runtime.hpp>
-
-#include <Drivers/MMD/mmd.hpp>
-#include <Drivers/MMD/krnl.hpp>
+#include <stdio.hpp>
 
 #ifndef BLOCK_COUNT
 #define BLOCK_COUNT(bytes) (((bytes) + 0xFFFULL) / 0x1000ULL)
 #endif
+
+// ------ //
+// VECTOR //
+// ------ //
 
 namespace std
 {
@@ -30,15 +39,14 @@ namespace std
 
         ~vector() {
             clear();
-            if(data) SysKrnl64::MMD::mmd->free(data, BLOCK_COUNT(reservedSize * sizeof(T)), SysKrnl64::MMD::MT_KRNL);
+            if(data) kfree(data);
         }
 
         bool push_back(const T& value) {
             if(usedSize == reservedSize) {
                 if(!relocate(reservedSize == 0 ? 4 : reservedSize * 2)) return false;
             }
-            // new (&data[usedSize]) T(value);
-            memcpy(&data[usedSize], &value, sizeof(T));
+            new (&data[usedSize]) T(value);
             usedSize++;
             return true;
         }
@@ -48,8 +56,7 @@ namespace std
                 if(!relocate(reservedSize == 0 ? 4 : reservedSize * 2)) return false;
             }
 
-            // new (&data[usedSize]) T(std::move(value));
-            memcpy(&data[usedSize], &value, sizeof(T));
+            new (&data[usedSize]) T(std::move(value));
             usedSize++;
             return true;
         }
@@ -121,8 +128,8 @@ namespace std
         size_t reservedSize = 0;
 
         bool relocate(size_t newCapacity) {
-            size_t newBlocks = BLOCK_COUNT(newCapacity * sizeof(T));
-            T* newData = reinterpret_cast<T*>(SysKrnl64::MMD::mmd->malloc(newBlocks, SysKrnl64::MMD::MT_KRNL));
+            size_t newSize = newCapacity * sizeof(T);
+            T* newData = reinterpret_cast<T*>(kmalloc(newSize));
             if(!newData) return false;
 
             for(size_t i = 0; i < usedSize; i++)
@@ -131,7 +138,7 @@ namespace std
                 data[i].~T();
             }
 
-            if(data) SysKrnl64::MMD::mmd->free(data, BLOCK_COUNT(reservedSize * sizeof(T)), SysKrnl64::MMD::MT_KRNL);
+            if(data) kfree(data);
 
             data = newData;
             reservedSize = newCapacity;

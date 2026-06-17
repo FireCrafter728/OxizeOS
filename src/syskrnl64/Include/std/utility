@@ -1,14 +1,29 @@
 #pragma once
 
-#include <type_traits>
+// |||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||| // 
+// |----------------------------------------------------------------------| //
+// | Minimal freestanding LIBSTDC++ Implementation for the OxizeOS kernel | //
+// | UTILITY: various utility functions for other LIBSTDC++ components    | //
+// |----------------------------------------------------------------------| //
+// |||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||| //
+
+// 
 
 namespace std
 {
+    // ---- //
+    // MOVE //
+    // ---- //
+
     template <typename T>
     constexpr T&& move(T& t) noexcept
     {
         return static_cast<T&&>(t);
     }
+
+    // ------- //
+    // FORWARD //
+    // ------- //
 
     template <typename T>
     constexpr T&& forward(std::remove_reference_t<T>& t) noexcept

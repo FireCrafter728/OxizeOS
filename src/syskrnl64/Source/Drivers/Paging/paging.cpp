@@ -43,7 +43,7 @@ void Paging::MapArea(uintptr_t Phys, uintptr_t Virt, size_t pageCount, flags_t f
             volatile uint64_t* pdpt_addr = AllocatePage();
             *pdpt_entry = MAKE_PTE(reinterpret_cast<uintptr_t>(pdpt_addr), PTE_PRESENT | PTE_RW);
         }
-        volatile uint64_t* pdpt = reinterpret_cast<volatile uint64_t*>(GetVirt(*pdpt_entry & PTE_PHYS_MASK));
+        volatile uint64_t* pdpt = reinterpret_cast<volatile uint64_t*>(GetKrnlStructVirt(*pdpt_entry & PTE_PHYS_MASK));
  
         // retrieve PD Table from PDPT table
         volatile uint64_t* pd_entry = &pdpt[pdpt_idx];
@@ -51,7 +51,7 @@ void Paging::MapArea(uintptr_t Phys, uintptr_t Virt, size_t pageCount, flags_t f
             volatile uint64_t* pd_addr = AllocatePage();
             *pd_entry = MAKE_PTE(reinterpret_cast<uintptr_t>(pd_addr), PTE_PRESENT | PTE_RW);
         }
-        volatile uint64_t* pd = reinterpret_cast<volatile uint64_t*>(GetVirt(*pd_entry & PTE_PHYS_MASK));
+        volatile uint64_t* pd = reinterpret_cast<volatile uint64_t*>(GetKrnlStructVirt(*pd_entry & PTE_PHYS_MASK));
 
         // retrieve PT Table from PD table
         volatile uint64_t* pt_entry = &pd[pd_idx];
@@ -59,7 +59,7 @@ void Paging::MapArea(uintptr_t Phys, uintptr_t Virt, size_t pageCount, flags_t f
             volatile uint64_t* pt_addr = AllocatePage();
             *pt_entry = MAKE_PTE(reinterpret_cast<uintptr_t>(pt_addr), PTE_PRESENT | PTE_RW);
         }
-        volatile uint64_t* pt = reinterpret_cast<volatile uint64_t*>(GetVirt(*pt_entry & PTE_PHYS_MASK));
+        volatile uint64_t* pt = reinterpret_cast<volatile uint64_t*>(GetKrnlStructVirt(*pt_entry & PTE_PHYS_MASK));
 
         // Create a new entry with respective flags in PT table
         volatile uint64_t* page_entry = &pt[pt_idx];
@@ -86,15 +86,15 @@ void Paging::FreeArea(uintptr_t Virt, size_t pageCount)
 
         uint64_t pdpt_entry = pml4[pml4_idx];
         if(!(pdpt_entry & PTE_PRESENT)) continue;
-        uint64_t* pdpt = reinterpret_cast<uint64_t*>(GetVirt(pdpt_entry & PTE_PHYS_MASK));
+        uint64_t* pdpt = reinterpret_cast<uint64_t*>(GetKrnlStructVirt(pdpt_entry & PTE_PHYS_MASK));
 
         uint64_t pd_entry = pdpt[pdpt_idx];
         if(!(pd_entry & PTE_PRESENT)) continue;
-        uint64_t* pd = reinterpret_cast<uint64_t*>(GetVirt(pd_entry & PTE_PHYS_MASK));
+        uint64_t* pd = reinterpret_cast<uint64_t*>(GetKrnlStructVirt(pd_entry & PTE_PHYS_MASK));
 
         uint64_t pt_entry = pd[pd_idx];
         if(!(pt_entry & PTE_PRESENT)) continue;
-        uint64_t* pt = reinterpret_cast<uint64_t*>(GetVirt(pt_entry & PTE_PHYS_MASK));
+        uint64_t* pt = reinterpret_cast<uint64_t*>(GetKrnlStructVirt(pt_entry & PTE_PHYS_MASK));
 
         uint64_t PageEntry = pt[pt_idx];
         if(PageEntry & PTE_PRESENT)
@@ -145,7 +145,7 @@ uint64_t* Paging::AllocatePage()
     }
 
     uintptr_t pagePhys = reinterpret_cast<uintptr_t>(this->freeTableList);
-    FreeTableHeader* page = reinterpret_cast<FreeTableHeader*>(GetVirt(pagePhys));
+    FreeTableHeader* page = reinterpret_cast<FreeTableHeader*>(GetKrnlStructVirt(pagePhys));
     this->freeTableList = page->next;
     memset(page, 0, PAGE_SIZE);
 
@@ -156,7 +156,7 @@ void Paging::FreePage(uintptr_t phys)
 {
     if(!phys) return;
 
-    FreeTableHeader* vpage = reinterpret_cast<FreeTableHeader*>(GetVirt(phys));
+    FreeTableHeader* vpage = reinterpret_cast<FreeTableHeader*>(GetKrnlStructVirt(phys));
 
     memset(vpage, 0, PAGE_SIZE);
 
@@ -166,10 +166,43 @@ void Paging::FreePage(uintptr_t phys)
 
 uintptr_t Paging::GetPhys(uintptr_t Virt)
 {
-    return Virt - MapAddr + this->regionStart;
+    // Get page tables indices for current vaddr
+    const uint16_t pml4_idx = (Virt >> 39) & 0x1FF;
+    const uint16_t pdpt_idx = (Virt >> 30) & 0x1FF;
+    const uint16_t pd_idx = (Virt >> 21) & 0x1FF;
+    const uint16_t pt_idx = (Virt >> 12) & 0x1FF;
+    const uint16_t virtOffset = Virt & 0xFFF;
+
+    // retrieve PDPT Table from PML4 table
+    volatile uint64_t* pml4 = this->PageTables;
+    volatile uint64_t* pdpt_entry = &pml4[pml4_idx];
+    if(!(*pdpt_entry & PTE_PRESENT)) {
+        // Entry doesn't exist
+        return 0;
+    }
+    volatile uint64_t* pdpt = reinterpret_cast<volatile uint64_t*>(GetKrnlStructVirt(*pdpt_entry & PTE_PHYS_MASK));
+ 
+    // retrieve PD Table from PDPT table
+    volatile uint64_t* pd_entry = &pdpt[pdpt_idx];
+    if(!(*pd_entry & PTE_PRESENT)) {
+        return 0;
+    }
+    volatile uint64_t* pd = reinterpret_cast<volatile uint64_t*>(GetKrnlStructVirt(*pd_entry & PTE_PHYS_MASK));
+
+    // retrieve PT Table from PD table
+    volatile uint64_t* pt_entry = &pd[pd_idx];
+    if(!(*pt_entry & PTE_PRESENT)) {
+        return 0;
+    }
+    volatile uint64_t* pt = reinterpret_cast<volatile uint64_t*>(GetKrnlStructVirt(*pt_entry & PTE_PHYS_MASK));
+
+    // Return the physical address in the page entry
+    volatile uint64_t* page_entry = &pt[pt_idx];
+
+    return (*page_entry & PTE_PHYS_MASK) + virtOffset;
 }
 
-uintptr_t Paging::GetVirt(uintptr_t Phys)
+uintptr_t Paging::GetKrnlStructVirt(uintptr_t Phys)
 {
     return Phys + MapAddr - this->regionStart;
 }

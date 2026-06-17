@@ -15,8 +15,13 @@ bool PCIe::Initialize(ACPI::MCFG* mcfg)
     }
 
     // Allocate and fill out a 256 entry array of ECAM Segments for each bus for quick ECAM Segment base lookup based off bus index
-
-    this->Segments = reinterpret_cast<ECAMSegment*>(mmd->malloc((sizeof(ECAMSegment) * PCIE_MAX_BUSSES + BLOCK_SIZE - 1) / BLOCK_SIZE , MMD::MT_KRNL));
+    
+    this->Segments = reinterpret_cast<ECAMSegment*>(kmalloc(sizeof(ECAMSegment) * PCIE_MAX_BUSSES));
+    if(!this->Segments)
+    {
+        printf("[SYSKRNL64] [PCIe] [ERROR]: Failed to allocate memory for storing ECAM Segment descriptors\r\n");
+        return false;
+    }
 
     size_t mcfgEntryCount = (mcfg->sdt.Length - sizeof(ACPI::ACPISDTHeader) - 8) / sizeof(ACPI::MCFGEntry);
 
@@ -56,14 +61,16 @@ bool PCIe::GetDeviceInfo(uint8_t bus, uint8_t device, DeviceInfo* infoOut)
 
     // Map config block(4K) to virtual memory. The address is already page aligned
 
-    ConfigBlock* config = reinterpret_cast<ConfigBlock*>(mmd->malloc(1, MMD::MT_MMIO));
+    auto allocRes = virtAlloc->AllocateBlocks(1, MMD::VA_NODE_FLAG_MMIO | MMD::VA_NODE_FLAG_NO_EXECUTE_ACCESS | MMD::VA_NODE_FLAG_USED);
 
-    if(!config) {
-        printf("[SYSKRNL64] [PCIe] [ERROR]: Memory allocation failed\r\n");
+    if(!allocRes) {
+        printf("[SYSKRNL64] [PCIe] [ERROR]: Failed to allocate memory for PCIe Config Block, error code: %d\r\n", allocRes.error());
         return false;
     }
 
-    paging->MapArea(reinterpret_cast<uintptr_t>(configPhys), reinterpret_cast<uintptr_t>(config), 1, PTE_PRESENT | PTE_RW | PTE_CD | PTE_NX);
+    ConfigBlock* config = reinterpret_cast<ConfigBlock*>(allocRes.value()); 
+
+    paging->MapArea(reinterpret_cast<uintptr_t>(configPhys), reinterpret_cast<uintptr_t>(config), 1, PTE_PRESENT | PTE_RW | PTE_PCD | PTE_NX);
 
     if(config->VendorID == PCIE_ANY16) return false; // Device doesn't exist
 

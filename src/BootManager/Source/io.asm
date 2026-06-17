@@ -36,6 +36,15 @@ EnableSSE:
 	or rax, (1 << 10) ; Set OSXMMEXCPT bit of CR4(bit 10)
 	mov cr4, rax
 
+	; Setup x87 FPU to an initial state and setup MXCSR register
+
+	fninit
+
+	sub rsp, 16
+	mov dword [rsp], 0x1F80
+	ldmxcsr [rsp]
+	add rsp, 16
+
 	xor rax, rax
 	ret
 

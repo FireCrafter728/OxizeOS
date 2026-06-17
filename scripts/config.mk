@@ -38,7 +38,7 @@ export MINGW_LDXX=x86_64-w64-mingw32-g++
 export MINGW_CXXFLAGS= -std=c++23 -Wall -Wextra -O2 -ffreestanding -nostdlib -nostdinc -nostdinc++ -m64 
 export MINGW_LINKFLAGS= -nostdlib
 
-export GCC_VERSION=15.2.0
+export GCC_VERSION=16.1.0
 export BINUTILS_VERSION=2.46.0
 
 export GCC_URL=https://ftp.gnu.org/gnu/gcc/gcc-$(GCC_VERSION)/gcc-$(GCC_VERSION).tar.gz

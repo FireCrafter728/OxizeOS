@@ -1,5 +1,12 @@
 #pragma once
 
+// |||||||||||||||||||||||||||||||||||||||| // 
+// |--------------------------------------| //
+// | OxizeOS Kernel Implementation        | //
+// | IRQ: Driver for managing IOAPIC IRQs | //
+// |--------------------------------------| //
+// |||||||||||||||||||||||||||||||||||||||| //
+
 #include <Drivers/APIC/apic.hpp>
 #include <Drivers/Interrupts/isr.hpp>
 

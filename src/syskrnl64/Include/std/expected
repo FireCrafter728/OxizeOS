@@ -1,0 +1,231 @@
+#pragma once
+
+// |||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||| // 
+// |------------------------------------------------------------------------------------------------| //
+// | Minimal freestanding LIBSTDC++ Implementation for the OxizeOS kernel                           | //
+// | EXPECTED: Class for returning a value on success and error value on error in the same type     | //
+// |------------------------------------------------------------------------------------------------| //
+// |||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||| //
+
+#include <stdint.hpp>
+#include <algorithm>
+#include <type_traits>
+#include <utility>
+
+namespace std
+{
+    // ---------- //
+    // UNEXPECTED //
+    // ---------- //
+    
+    template<typename T_EError>
+    class unexpected
+    {
+    public:
+        using error_type = T_EError;
+
+        constexpr unexpected(const unexpected&) = default;
+        constexpr unexpected(unexpected&&) = default;
+
+        constexpr unexpected& operator=(const unexpected&) = default;
+        constexpr unexpected& operator=(unexpected&&) = default;
+
+        template<typename T>
+        requires(!std::is_same_v<std::remove_reference_t<T>, unexpected>)
+        constexpr explicit unexpected(T&& err) : _Error(std::forward<T>(err)) {}
+
+        constexpr const T_EError& error() const&
+        {
+            return _Error;
+        }
+
+        constexpr T_EError& error()& noexcept
+        {
+            return _Error;
+        }
+
+        constexpr const T_EError&& error() const&& noexcept
+        {
+            return std::move(_Error);
+        }
+
+        constexpr T_EError&& error()&& noexcept
+        {
+            return std::move(_Error);
+        }
+
+    private:
+        T_EError _Error;
+    };
+
+    // -------- //
+    // EXPECTED //
+    // -------- //
+
+    template<typename T_EResult, typename T_EError>
+    requires (!std::is_same_v<T_EResult, T_EError> && !std::is_same_v<T_EResult, void>)
+    class expected
+    {
+    public:
+        expected()
+        {
+            _has_value = false;
+            new (storage) T_EError();
+        }
+
+        expected(const T_EResult& result)
+        {
+            _has_value = true;
+            new (storage) T_EResult(result);
+        }
+
+        expected(const T_EError& error)
+        {
+            _has_value = false;
+            new (storage) T_EError(error);
+        }
+
+        expected(const unexpected<T_EError>& err)
+        {
+            _has_value = false;
+            new (storage) T_EError(err.error());
+        }
+
+        expected(const unexpected<T_EError>&& err)
+        {
+            _has_value = false;
+            new (storage) T_EError(std::move(err.error()));
+        }
+
+        expected(const expected& other)
+        {
+            _has_value = other._has_value;
+            
+            if(_has_value) new(storage) T_EResult(other.value());
+            else new(storage) T_EError(other.error());
+        }
+
+        expected(expected&& other)
+        {
+            _has_value = other._has_value;
+
+            if(_has_value) new(storage) T_EResult(std::move(other.value()));
+            else new(storage) T_EError(std::move(other.error()));
+        }
+
+        expected& operator=(const expected& other)
+        {
+            if(this == &other) return *this;
+
+            destroy();
+
+            _has_value = other._has_value;
+
+            if(_has_value) new(storage) T_EResult(other.value());
+            else new(storage) T_EError(other.error());
+
+            return *this;
+        }
+
+        expected& operator=(expected&& other)
+        {
+            if(this == &other) return *this;
+
+            destroy();
+
+            _has_value = other._has_value;
+
+            if(_has_value) new(storage) T_EResult(std::move(other.value()));
+            else new(storage) T_EError(std::move(other.error()));
+
+            other.reset();
+
+            return *this;
+        }
+
+        ~expected()
+        {
+            destroy();
+        }
+
+        constexpr explicit operator bool() const noexcept { return _has_value; }
+
+        constexpr bool has_value() const noexcept
+        {
+            return _has_value;
+        }
+
+        constexpr bool operator==(const expected& other) const noexcept { return _has_value == other._has_value; }
+
+        T_EResult* operator->() { return reinterpret_cast<T_EResult*>(storage); }
+        const T_EResult* operator->() const { return reinterpret_cast<const T_EResult*>(storage); }
+
+        T_EResult& operator*() { return value(); }
+        const T_EResult& operator*() const { return value(); }
+
+        T_EResult& value()
+        {
+            return *reinterpret_cast<T_EResult*>(storage);
+        }
+
+        const T_EResult& value() const
+        {
+            return *reinterpret_cast<const T_EResult*>(storage);
+        }
+
+        T_EError& error()
+        {
+            return *reinterpret_cast<T_EError*>(storage);
+        }
+
+        const T_EError& error() const
+        {
+            return *reinterpret_cast<const T_EError*>(storage);
+        }
+
+        T_EResult value_or(T_EResult fallback) const
+        {
+            if(_has_value) return value();
+            return fallback;
+        }
+
+        T_EError error_or(T_EError fallback) const
+        {
+            if(!_has_value) return error();
+            return fallback;
+        }
+
+        void reset()
+        {
+            destroy();
+
+            _has_value = false;
+            new (storage) T_EError();
+        }
+
+        template<typename F>
+        auto and_then(F&& f) const
+        {
+            using result_t = decltype(f(value()));
+            if(_has_value) return f(value());
+
+            return result_t(error());
+        }
+
+        template<typename F>
+        expected or_else(F&& f) const
+        {
+            if(_has_value) return *this;
+            return f(error());
+        }
+    private:
+        bool _has_value;
+        alignas(std::max(alignof(T_EResult), alignof(T_EError))) uint8_t storage[std::max(sizeof(T_EResult), sizeof(T_EError))];
+
+        void destroy()
+        {
+            if(_has_value) reinterpret_cast<T_EResult*>(storage)->~T_EResult();
+            else reinterpret_cast<T_EError*>(storage)->~T_EError();
+        }
+    };
+}

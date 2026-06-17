@@ -27,14 +27,16 @@ bool AHCI::Initialize(AHCIDevice* device)
 
     // Map PCIe BAR 5 to virtual memory
 
-    device->hba = reinterpret_cast<HBA*>(mmd->malloc(hbaBlocks, MMD::MT_MMIO));
-
-    if(!device->hba) {
-        printf("[SYSKRNL64] [SATA-AHCI] [ERROR]: Failed to reserve virtual memory for HBA\r\n");
+    auto barMapRes = virtAlloc->AllocateBlocks(hbaBlocks, MMD::VA_NODE_FLAG_MMIO | MMD::VA_NODE_FLAG_NO_EXECUTE_ACCESS | MMD::VA_NODE_FLAG_USED);
+    
+    if(!barMapRes) {
+        printf("[SYSKRNL64] [SATA-AHCI] [ERROR]: Failed to reserve virtual memory for HBA, error code: %d\r\n", barMapRes.error());
         return false;
     }
 
-    paging->MapArea(bar.BarAddr, reinterpret_cast<uintptr_t>(device->hba), hbaBlocks, PTE_PRESENT | PTE_RW | PTE_CD | PTE_NX);
+    device->hba = reinterpret_cast<HBA*>(barMapRes.value());
+
+    paging->MapArea(bar.BarAddr, reinterpret_cast<uintptr_t>(device->hba), hbaBlocks, PTE_PRESENT | PTE_RW | PTE_PCD | PTE_NX);
 
     //
     // Initializing AHCI
@@ -111,8 +113,7 @@ bool AHCI::Initialize(AHCIDevice* device)
         // Get command header & table
 
         volatile HBACommandHeader* commandHeader = &desc->CLB[slot];
-        uintptr_t cmdTablePhys = ((uintptr_t)commandHeader->CommandTableBase | ((uintptr_t)commandHeader->CommandTableBaseUpper << 32));
-        CommandTable* cmdTable = reinterpret_cast<CommandTable*>(paging->GetVirt(cmdTablePhys));
+        CommandTable* cmdTable = desc->commandTables[slot];
 
         // Setup command header
 
@@ -122,15 +123,15 @@ bool AHCI::Initialize(AHCIDevice* device)
 
         // Setup command table
 
-        PRDTEntry* entry0 = &cmdTable->PRDT[0];
+        volatile PRDTEntry* entry0 = &cmdTable->PRDT[0];
 
         uintptr_t dataOutPhys = paging->GetPhys(reinterpret_cast<uintptr_t>(desc->IdentifyBuffer));
 
         entry0->DataBaseAddress = (uint32_t)(dataOutPhys & 0xFFFFFFFF);
         entry0->DataBaseAddressUpper = (uint32_t)(dataOutPhys >> 32);
-        entry0->ByteCount = 511;
+        entry0->IOC_ByteCount = 511;
 
-        volatile H2DFIS* cfis = reinterpret_cast<H2DFIS*>(cmdTable->CFIS);
+        volatile H2DFIS* cfis = reinterpret_cast<volatile H2DFIS*>(cmdTable->CFIS);
 
         memset((void*)cmdTable->CFIS, 0, 64);
 
@@ -229,17 +230,33 @@ bool AHCI::InitializePorts(AHCIDevice* device)
 
         // Setup CLB & FB
 
-        desc.CLB = reinterpret_cast<HBACommandHeader*>(mmd->malloc(1, MMD::MT_KRNL, PTE_PRESENT | PTE_RW | PTE_CD | PTE_NX));
-        if(!desc.CLB) {
-            printf("[SYSKRNL64] [SATA-AHCI] [ERROR]: Failed to allocate memory for port %d CLB\r\n", i);
+        auto cmdHeaderAllocRes = virtAlloc->AllocateBlocks(1, MMD::VA_NODE_FLAG_PHYSICALLY_NOT_BACKED | MMD::VA_NODE_FLAG_MMIO | MMD::VA_NODE_FLAG_NO_EXECUTE_ACCESS | MMD::VA_NODE_FLAG_USED);
+        if(!cmdHeaderAllocRes) {
+            printf("[SYSKRNL64] [SATA-AHCI] [ERROR]: Failed to allocate virtual memory for port %d CLB, error code: %d\r\n", i, cmdHeaderAllocRes.error());
             return false;
         }
+        auto cmdHeaderPhysAllocRes = physAlloc->AllocContiguousBlocks(1);
+        if(!cmdHeaderPhysAllocRes)
+        {
+            printf("[SYSKRNL64] [SATA-AHCI] [ERROR]: Failed to allocate physical memory for port %d CLB, error code: %d\r\n", i, cmdHeaderPhysAllocRes.error());
+            return false;
+        }
+        paging->MapArea(cmdHeaderPhysAllocRes.value(), reinterpret_cast<uintptr_t>(cmdHeaderAllocRes.value()), 1, PTE_PRESENT | PTE_RW | PTE_PCD | PTE_NX);
+        desc.CLB = reinterpret_cast<HBACommandHeader*>(cmdHeaderAllocRes.value());
 
-        desc.FISReceiveBuffer = reinterpret_cast<uint8_t*>(mmd->malloc(1, MMD::MT_KRNL, PTE_PRESENT | PTE_RW | PTE_CD | PTE_NX));
-        if(!desc.FISReceiveBuffer) {
-            printf("[SYSKRNL64] [SATA-AHCI] [ERROR]: Failed to allocate memory for port %d FB\r\n", i);
+        auto fbHeaderAllocRes = virtAlloc->AllocateBlocks(1, MMD::VA_NODE_FLAG_PHYSICALLY_NOT_BACKED | MMD::VA_NODE_FLAG_MMIO | MMD::VA_NODE_FLAG_NO_EXECUTE_ACCESS | MMD::VA_NODE_FLAG_USED);
+        if(!fbHeaderAllocRes)
+        {
+            printf("[SYSKRNL64] [SATA-AHCI] [ERROR]: Failed to allocate virtual memory for port %d FB, error code: %d\r\n", i, fbHeaderAllocRes.error());
             return false;
         }
+        auto fbHeaderPhysAllocRes = physAlloc->AllocContiguousBlocks(1);
+        if(!fbHeaderPhysAllocRes) {
+            printf("[SYSKRNL64] [SATA-AHCI] [ERROR]: Failed to allocate physical memory for port %d FB, error code: %d\r\n", i, fbHeaderPhysAllocRes.error());
+            return false;
+        }
+        paging->MapArea(fbHeaderPhysAllocRes.value(), reinterpret_cast<uintptr_t>(fbHeaderAllocRes.value()), 1, PTE_PRESENT | PTE_RW | PTE_PCD | PTE_NX);
+        desc.FISReceiveBuffer = reinterpret_cast<uint8_t*>(fbHeaderAllocRes.value());
 
         desc.FISReceiveBufferSize = PAGE_SIZE;
 
@@ -253,12 +270,19 @@ bool AHCI::InitializePorts(AHCIDevice* device)
 
         // Map 32 command tables, each 4K bytes
         for(uint8_t j = 0; j < 32; j++) {
-            desc.commandTables[j] = reinterpret_cast<CommandTable*>(mmd->malloc(1, MMD::MT_KRNL, PTE_PRESENT | PTE_RW | PTE_CD | PTE_NX));
-
-            if(!desc.commandTables[j]) {
-                printf("[SYSKRNL64] [SATA-AHCI] [ERROR]: Failed to allocate memory for port %d command tables %d\r\n", i, j);
+            auto cmdtAllocRes = virtAlloc->AllocateBlocks(1, MMD::VA_NODE_FLAG_PHYSICALLY_NOT_BACKED | MMD::VA_NODE_FLAG_MMIO | MMD::VA_NODE_FLAG_NO_EXECUTE_ACCESS | MMD::VA_NODE_FLAG_USED);
+            if(!cmdtAllocRes)
+            {
+                printf("[SYSKRNL64] [SATA-AHCI] [ERROR]: Failed to allocate virtual memory for port %d command tables, error code: %d\r\n", i, cmdtAllocRes.error());
                 return false;
             }
+            auto cmdtPhysAllocRes = physAlloc->AllocContiguousBlocks(1);
+            if(!cmdtPhysAllocRes) {
+                printf("[SYSKRNL64] [SATA-AHCI] [ERROR]: Failed to allocate physical memory for port %d command tables, error code: %d\r\n", i, cmdtPhysAllocRes.error());
+                return false;
+            }
+            paging->MapArea(cmdtPhysAllocRes.value(), reinterpret_cast<uintptr_t>(cmdtAllocRes.value()), 1, PTE_PRESENT | PTE_RW | PTE_PCD | PTE_NX);
+            desc.commandTables[j] = reinterpret_cast<CommandTable*>(cmdtAllocRes.value());
         }
 
         // Initialize each CLB entry
@@ -300,6 +324,8 @@ bool AHCI::ReadSectors(AHCIDiskDevice* device, uint64_t lba, size_t count, void*
         return false;
     }
 
+    printf("[SYSKRNL64] [SATA-AHCI] [INFO]: Trying to read from DISK at LBA 0x%llX, count %llu, buffer ptr: 0x%llX\r\n", lba, count, reinterpret_cast<uintptr_t>(bufferOut));
+
     const size_t maxSectorsPerCommand = 64 * KIBIBYTE / SECTOR_SIZE;
     size_t sectorsLeft = count;
     uint64_t currLba = lba;
@@ -327,8 +353,7 @@ bool AHCI::ReadSectors(AHCIDiskDevice* device, uint64_t lba, size_t count, void*
         }
 
         volatile HBACommandHeader* cmdHeader = &desc->CLB[slot];
-        uintptr_t cmdTablePhys = ((uintptr_t)cmdHeader->CommandTableBase | ((uintptr_t)cmdHeader->CommandTableBaseUpper << 32));
-        CommandTable* cmdTable = reinterpret_cast<CommandTable*>(paging->GetVirt(cmdTablePhys));
+        CommandTable* cmdTable = desc->commandTables[slot];
 
         memset(cmdTable, 0, sizeof(CommandTable));
 
@@ -342,14 +367,16 @@ bool AHCI::ReadSectors(AHCIDiskDevice* device, uint64_t lba, size_t count, void*
 
         entries[0].DataBaseAddress = (uint32_t)(dataOutPhys & 0xFFFFFFFF);
         entries[0].DataBaseAddressUpper = (uint32_t)(dataOutPhys >> 32);
-        entries[0].ByteCount = std::min(sectorsThisCmd * SECTOR_SIZE, 64ULL * KIBIBYTE);
+        entries[0].IOC_ByteCount = sectorsThisCmd * SECTOR_SIZE - 1;
 
-        H2DFIS* fis = reinterpret_cast<H2DFIS*>(cmdTable->CFIS);
+        printf("dataBaseAddr: 0x%lX, upper: 0x%lX, IOC_ByteCount: 0x%lX\r\n", entries[0].DataBaseAddress, entries[0].DataBaseAddressUpper, entries[0].IOC_ByteCount);
+
+        volatile H2DFIS* fis = reinterpret_cast<volatile H2DFIS*>(cmdTable->CFIS);
 
         fis->FISType = FIS_TYPE_H2D;
         fis->command = FIS_COMMAND_READ_DMA_EXT;
         fis->device = 0x40;
-
+        fis->c = 1;
         
         fis->lba0 = currLba & 0xFF;
         fis->lba1 = (currLba >> 8) & 0xFF;
@@ -372,6 +399,17 @@ bool AHCI::ReadSectors(AHCIDiskDevice* device, uint64_t lba, size_t count, void*
 
         if(port->PxIS & PxIS_TaskFileErrorStatus) {
             printf("[SYSKRNL64] [SATA-AHCI] [ERROR]: Failed to read from DISK at port %d: Task File Error\r\n", device->devicePort);
+            return false;
+        }
+        
+        if(port->PxSERR != 0) {
+            printf("[SYSKRNL64] [SATA-AHCI] [ERROR]: Failed to read from DISK at port %d, PxSERR: 0x%X\r\n", device->devicePort, port->PxSERR);
+            return false;
+        }
+
+        if((port->PxTFD & 0xFF) & PxTFD_Error) {
+            printf("[SYSKRNL64] [SATA-AHCI] [ERROR]: Failed to read from DISK at port %d, Status: 0x%X, Error: 0x%X\r\n", device->devicePort, (port->PxTFD & 0xFF), ((port->PxTFD >> 8) & 0xFF));
+            return false;
         }
 
         bufferOut = static_cast<uint8_t*>(bufferOut) + sectorsThisCmd * SECTOR_SIZE;

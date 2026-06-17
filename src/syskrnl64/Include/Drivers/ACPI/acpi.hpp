@@ -1,7 +1,15 @@
 #pragma once
 
+// |||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||| // 
+// |--------------------------------------------------------------------------| //
+// | OxizeOS Kernel Implementation                                            | //
+// | ACPI: Driver for managing the Advanced Configuration and Power Interface | //
+// |--------------------------------------------------------------------------| //
+// |||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||| //
+
 #include <stdint.hpp>
 #include <SysTable.hpp>
+#include <expected>
 
 #ifndef PACK
 #define PACK __attribute__((packed))

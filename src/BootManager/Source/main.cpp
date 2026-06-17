@@ -57,10 +57,10 @@ extern "C" EFI_STATUS EFIAPI efi_main(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE* 
 	}
 	sysTable->fb.fbBase = gop->Mode->FrameBufferBase;
 	
-	// Copy ExecuteKernel function to the start of the kernel data area
+	// Copy ExecuteKernel function to the start of the kernel bootstrap stack
 	// mapped by both UEFI & our own page tables and execute it
 
-	uintptr_t krnlExecLoadAddr = sysTable->memLayout.DataAreaAddr - BootMgr::MapAddr + sysTableBuilder.getRegionStartAddr();
+	uintptr_t krnlExecLoadAddr = sysTable->memLayout.StackAddr - BootMgr::MapAddr + sysTableBuilder.getRegionStartAddr();
 	size_t krnlExecLoadSize = (uintptr_t)ExecuteKernelEnd - (uintptr_t)ExecuteKernel;
 	memcpy((void*)krnlExecLoadAddr, (void*)ExecuteKernel, krnlExecLoadSize);
 

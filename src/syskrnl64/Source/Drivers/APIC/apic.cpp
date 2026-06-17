@@ -158,14 +158,15 @@ bool APIC::Initialize(ACPI::MADT* madt)
         uintptr_t lapicBasePhys = madt->lapicAddr;
 
         if(LAPICAddrOverrideExists) lapicBasePhys = lapicOverride.lapicAddr;
-    
-        lapicBaseVirt = reinterpret_cast<uintptr_t>(mmd->malloc(1, MMD::MT_MMIO));
-        if(!lapicBaseVirt) {
+
+        auto virtAllocRes = virtAlloc->AllocateBlocks(1, MMD::VA_NODE_FLAG_MMIO | MMD::VA_NODE_FLAG_NO_EXECUTE_ACCESS | MMD::VA_NODE_FLAG_USED);
+        if(!virtAllocRes)
+        {
             printf("[SYSKRNL64] [APIC] [ERROR]: Failed to map LAPIC Base to memory\r\n");
             return false;
         }
-
-        paging->MapArea(lapicBasePhys, lapicBaseVirt, 1, PTE_PRESENT | PTE_RW | PTE_CD | PTE_NX);
+        paging->MapArea(lapicBasePhys, reinterpret_cast<uintptr_t>(virtAllocRes.value()), 1, PTE_PRESENT | PTE_RW | PTE_PCD | PTE_NX);
+        lapicBaseVirt = reinterpret_cast<uintptr_t>(virtAllocRes.value());
     }
 
     // Enable Spurious Vector Register and map it to ISR 255
@@ -186,13 +187,15 @@ bool APIC::Initialize(ACPI::MADT* madt)
     for(size_t i = 0; i < ioapicEntryCount; i++)
     {
         IOAPICDesc& ioapic = ioapicEntries[i];
-        ioapic.virt = reinterpret_cast<uintptr_t>(mmd->malloc(1, MMD::MT_MMIO));
-        if(!ioapic.virt) {
+
+        auto virtAllocRes = virtAlloc->AllocateBlocks(1, MMD::VA_NODE_FLAG_MMIO | MMD::VA_NODE_FLAG_NO_EXECUTE_ACCESS | MMD::VA_NODE_FLAG_USED);
+        if(!virtAllocRes)
+        {
             printf("[SYSKRNL64] [APIC] [ERROR]: Failed to map IOAPIC %d to memory\r\n", i);
             return false;
         }
-
-        paging->MapArea(ioapic.entry.ioapicAddr, ioapic.virt, 1, PTE_PRESENT | PTE_RW | PTE_CD | PTE_NX);
+        paging->MapArea(ioapic.entry.ioapicAddr, reinterpret_cast<uintptr_t>(virtAllocRes.value()), 1, PTE_PRESENT | PTE_RW | PTE_PCD | PTE_NX);
+        ioapic.virt = reinterpret_cast<uintptr_t>(virtAllocRes.value());
 
         // Read reg 0x01
         uint32_t value = ReadIOAPIC(i, 1);

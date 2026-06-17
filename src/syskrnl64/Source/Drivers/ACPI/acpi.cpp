@@ -11,18 +11,14 @@ bool ACPI::Initialize(SystemTable* System)
 {
     // Map RSDP to virtual memory
 
-    rsdp = reinterpret_cast<RSDP*>(mmd->malloc(1, MMD::MT_MMIO));
-
-    if(!rsdp) {
-        printf("[SYSKRNL64] [ACPI] [ERROR]: Memory allocation failed\r\n");
+    auto rsdpAllocRes = virtAlloc->AllocateBlocks(1, MMD::VA_NODE_FLAG_MMIO | MMD::VA_NODE_FLAG_NO_EXECUTE_ACCESS | MMD::VA_NODE_FLAG_USED);
+    if(!rsdpAllocRes)
+    {
+        printf("[SYSKRNL64] [ACPI] [ERROR]: Failed to allocate virtual memory for RSDP, error code: %d\r\n", rsdpAllocRes.error());
         return false;
     }
-
-    paging->MapArea(System->ACPI_RSDP, reinterpret_cast<uintptr_t>(rsdp), 1, PTE_PRESENT | PTE_RW | PTE_CD | PTE_NX);
-
-    // Add the RSDP offset in page to the virtual address to prevent misalignment
-
-    rsdp = reinterpret_cast<RSDP*>(reinterpret_cast<uint8_t*>(rsdp) + (System->ACPI_RSDP & 0xFFF));
+    paging->MapArea(System->ACPI_RSDP, reinterpret_cast<uintptr_t>(rsdpAllocRes.value()), 1, PTE_PRESENT | PTE_RW | PTE_NX);
+    rsdp = reinterpret_cast<RSDP*>(reinterpret_cast<uintptr_t>(rsdpAllocRes.value()) + (System->ACPI_RSDP & 0xFFF));
 
     // Confirm that the RSDP is valid
 
@@ -59,33 +55,31 @@ bool ACPI::Initialize(SystemTable* System)
     
     // Map XSDT to virtual memory
 
-    xsdt = reinterpret_cast<XSDT*>(mmd->malloc(1, MMD::MT_MMIO));
-
-    if(!xsdt) {
-        printf("[SYSKRNL64] [ACPI] [ERROR]: Memory allocation failed\r\n");
+    auto xsdtAllocRes = virtAlloc->AllocateBlocks(1, MMD::VA_NODE_FLAG_MMIO | MMD::VA_NODE_FLAG_NO_EXECUTE_ACCESS | MMD::VA_NODE_FLAG_USED);
+    if(!xsdtAllocRes)
+    {
+        printf("[SYSKRNL64] [ACPI] [ERROR]: Failed to allocate virtual memory for XSDT, error code: %d\r\n", xsdtAllocRes.error());
         return false;
     }
-
-    paging->MapArea(rsdp->XsdtAddress, reinterpret_cast<uintptr_t>(xsdt), 1, PTE_PRESENT | PTE_RW | PTE_NX);
-
-    xsdt = reinterpret_cast<XSDT*>(reinterpret_cast<uint8_t*>(xsdt) + (rsdp->XsdtAddress & 0xFFF));
+    paging->MapArea(rsdp->XsdtAddress, reinterpret_cast<uintptr_t>(xsdtAllocRes.value()), 1, PTE_PRESENT | PTE_RW | PTE_NX);
+    xsdt = reinterpret_cast<XSDT*>(reinterpret_cast<uintptr_t>(xsdtAllocRes.value()) + (rsdp->XsdtAddress & 0xFFF));
 
     size_t mapPages = PAGE_ALIGN_UP(xsdt->sdt.Length) / PAGE_SIZE;
 
-    mmd->freeBlocks(1, MMD::MT_MMIO);
+    if(mapPages > 1)
+    {
+        paging->FreeArea(reinterpret_cast<uintptr_t>(xsdt), 1);
+        virtAlloc->FreeBlocks(xsdt);
 
-    xsdt = reinterpret_cast<XSDT*>(mmd->malloc(mapPages, MMD::MT_MMIO));
-
-    if(!xsdt) {
-        printf("[SYSKRNL64] [ACPI] [ERROR]: Memory allocation failed\r\n");
-        return false;
+        xsdtAllocRes = virtAlloc->AllocateBlocks(mapPages, MMD::VA_NODE_FLAG_MMIO | MMD::VA_NODE_FLAG_NO_EXECUTE_ACCESS | MMD::VA_NODE_FLAG_USED);
+        if(!xsdtAllocRes)
+        {
+            printf("[SYSKRNL64] [ACPI] [ERROR]: Failed to allocate virtual memory for XSDT, error code: %d\r\n", xsdtAllocRes.error());
+            return false;
+        }
+        paging->MapArea(rsdp->XsdtAddress, reinterpret_cast<uintptr_t>(xsdtAllocRes.value()), mapPages, PTE_PRESENT | PTE_RW | PTE_NX);
+        xsdt = reinterpret_cast<XSDT*>(reinterpret_cast<uintptr_t>(xsdtAllocRes.value()) + (rsdp->XsdtAddress & 0xFFF));
     }
-
-    paging->MapArea(rsdp->XsdtAddress, reinterpret_cast<uintptr_t>(xsdt), mapPages, PTE_PRESENT | PTE_RW | PTE_NX);
-
-    // Add the XSDT offset in page to the virtual address to prevent misalignment
-
-    xsdt = reinterpret_cast<XSDT*>(reinterpret_cast<uint8_t*>(xsdt) + (rsdp->XsdtAddress & 0xFFF));
 
     // Confirm whether the XSDT is genuine
 
@@ -116,20 +110,21 @@ MCFG* ACPI::GetMCFG()
     for(size_t i = 0; i < xsdtEntries; i++)
     {
         // Map entry
-        ACPISDTHeader* entry = reinterpret_cast<ACPISDTHeader*>(mmd->malloc(1, MMD::MT_MMIO));
 
-        if(!entry) {
-            printf("[SYSKRNL64] [ACPI] [ERROR]: Memory allocation failed\r\n");
+        auto virtAllocRes = virtAlloc->AllocateBlocks(1, MMD::VA_NODE_FLAG_MMIO | MMD::VA_NODE_FLAG_NO_EXECUTE_ACCESS | MMD::VA_NODE_FLAG_USED);
+        if(!virtAllocRes)
+        {
+            printf("[SYSKRNL64] [ACPI] [ERROR]: Failed to allocate memory for a XSDT entry\r\n");
             return nullptr;
         }
-
-        paging->MapArea(xsdt->entries[i], reinterpret_cast<uintptr_t>(entry), 1, PTE_PRESENT | PTE_RW | PTE_NX);
+        paging->MapArea(xsdt->entries[i], reinterpret_cast<uintptr_t>(virtAllocRes.value()), 1, PTE_PRESENT | PTE_RW | PTE_NX);
+        ACPISDTHeader* entry = reinterpret_cast<ACPISDTHeader*>(reinterpret_cast<uintptr_t>(virtAllocRes.value()) + (xsdt->entries[i] & 0xFFF));
 
         // Check if entry is MCFG
 
         if(memcmp(entry->Signature, reinterpret_cast<const void*>(MCFGSignature), 4) != 0) {
             paging->FreeArea(reinterpret_cast<uintptr_t>(entry), 1);
-            mmd->freeBlocks(1, MMD::MT_MMIO);
+            virtAlloc->FreeBlocks(virtAllocRes.value());
             continue;
         }
 
@@ -138,16 +133,16 @@ MCFG* ACPI::GetMCFG()
         size_t mapPages = PAGE_ALIGN_UP(entry->Length) / PAGE_SIZE;
 
         paging->FreeArea(reinterpret_cast<uintptr_t>(entry), 1);
-        mmd->freeBlocks(1, MMD::MT_MMIO);
-        
-        this->mcfg = reinterpret_cast<MCFG*>(mmd->malloc(mapPages, MMD::MT_MMIO));
+        virtAlloc->FreeBlocks(virtAllocRes.value());
 
-        if(!this->mcfg) {
-            printf("[SYSKRNL64] [ACPI] [ERROR]: Memory allocation failed\r\n");
+        virtAllocRes = virtAlloc->AllocateBlocks(mapPages, MMD::VA_NODE_FLAG_MMIO | MMD::VA_NODE_FLAG_NO_EXECUTE_ACCESS | MMD::VA_NODE_FLAG_USED);
+        if(!virtAllocRes)
+        {
+            printf("[SYSKRNL64] [ACPI] [ERROR]: Failed to allocate %d blocks for the MCFG ACPI entry\r\n", mapPages);
             return nullptr;
         }
-
-        paging->MapArea(xsdt->entries[i], reinterpret_cast<uintptr_t>(this->mcfg), mapPages, PTE_PRESENT | PTE_RW | PTE_NX);
+        paging->MapArea(xsdt->entries[i], reinterpret_cast<uintptr_t>(virtAllocRes.value()), mapPages, PTE_PRESENT | PTE_RW | PTE_NX);
+        this->mcfg = reinterpret_cast<MCFG*>(reinterpret_cast<uintptr_t>(virtAllocRes.value()) + (xsdt->entries[i] & 0xFFF));
 
         // Validate Checksum
 
@@ -172,20 +167,21 @@ MADT* ACPI::GetMADT()
     for(size_t i = 0; i < xsdtEntries; i++)
     {
         // Map entry
-        ACPISDTHeader* entry = reinterpret_cast<ACPISDTHeader*>(mmd->malloc(1, MMD::MT_MMIO));
 
-        if(!entry) {
-            printf("[SYSKRNL64] [ACPI] [ERROR]: Memory allocation failed\r\n");
+        auto virtAllocRes = virtAlloc->AllocateBlocks(1, MMD::VA_NODE_FLAG_MMIO | MMD::VA_NODE_FLAG_NO_EXECUTE_ACCESS | MMD::VA_NODE_FLAG_USED);
+        if(!virtAllocRes)
+        {
+            printf("[SYSKRNL64] [ACPI] [ERROR]: Failed to allocate memory for a XSDT entry\r\n");
             return nullptr;
         }
-
-        paging->MapArea(xsdt->entries[i], reinterpret_cast<uintptr_t>(entry), 1, PTE_PRESENT | PTE_RW | PTE_NX);
+        paging->MapArea(xsdt->entries[i], reinterpret_cast<uintptr_t>(virtAllocRes.value()), 1, PTE_PRESENT | PTE_RW | PTE_NX);
+        ACPISDTHeader* entry = reinterpret_cast<ACPISDTHeader*>(reinterpret_cast<uintptr_t>(virtAllocRes.value()) + (xsdt->entries[i] & 0xFFF));
 
         // Check if entry is MADT
 
         if(memcmp(entry->Signature, reinterpret_cast<const void*>(MADTSignature), 4) != 0) {
             paging->FreeArea(reinterpret_cast<uintptr_t>(entry), 1);
-            mmd->freeBlocks(1, MMD::MT_MMIO);
+            virtAlloc->FreeBlocks(virtAllocRes.value());
             continue;
         }
 
@@ -194,16 +190,16 @@ MADT* ACPI::GetMADT()
         size_t mapPages = PAGE_ALIGN_UP(entry->Length) / PAGE_SIZE;
 
         paging->FreeArea(reinterpret_cast<uintptr_t>(entry), 1);
-        mmd->freeBlocks(1, MMD::MT_MMIO);
-        
-        this->madt = reinterpret_cast<MADT*>(mmd->malloc(mapPages, MMD::MT_MMIO));
+        virtAlloc->FreeBlocks(virtAllocRes.value());
 
-        if(!this->madt) {
-            printf("[SYSKRNL64] [ACPI] [ERROR]: Memory allocation failed\r\n");
+        virtAllocRes = virtAlloc->AllocateBlocks(mapPages, MMD::VA_NODE_FLAG_MMIO | MMD::VA_NODE_FLAG_NO_EXECUTE_ACCESS | MMD::VA_NODE_FLAG_USED);
+        if(!virtAllocRes)
+        {
+            printf("[SYSKRNL64] [ACPI] [ERROR]: Failed to allocate %d blocks for MADT ACPI Entry\r\n", mapPages);
             return nullptr;
         }
-
-        paging->MapArea(xsdt->entries[i], reinterpret_cast<uintptr_t>(this->madt), mapPages, PTE_PRESENT | PTE_RW | PTE_NX);
+        paging->MapArea(xsdt->entries[i], reinterpret_cast<uintptr_t>(virtAllocRes.value()), mapPages, PTE_PRESENT | PTE_RW | PTE_NX);
+        this->madt = reinterpret_cast<MADT*>(reinterpret_cast<uintptr_t>(virtAllocRes.value()) + (xsdt->entries[i] & 0xFFF));
 
         // Validate Checksum
 

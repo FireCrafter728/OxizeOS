@@ -63,23 +63,29 @@ SystemTable* SysTable::BuildSystemTable(size_t SysKrnl64PageCount, EFI_SYSTEM_TA
 		}
 	}
 
+	// Get page count needed for the page tables
 	size_t ptCount = (totalMemoryPages + 511) / 512;
 	size_t pdCount = (ptCount + 511) / 512;
 	size_t pdptCount = (pdCount + 511) / 512;
 	size_t pml4Count = (pdptCount + 511) / 512;
 	size_t PageTableReservePages = ptCount + pdCount + pdptCount + pml4Count;
 
+	// Get page count needed for the physical bitmap allocator
+	size_t BytesNeededForPhysAlloc = (totalMemoryPages + 7) / 8; // 1 bit / page
+	size_t PagesNeededForPhysAlloc = (BytesNeededForPhysAlloc + 0xFFF) / 0x1000;
+
 	const size_t SysTablePages = PAGE_ALIGN_UP(sizeof(SystemTable)) / 0x1000;
 	const size_t bufSize = efiMemmapEntryCount * sizeof(MemoryRegion);
 	const size_t bufPages = (bufSize + 0xFFF) / 0x1000;
+
 	// Total buffer size:
 	// Pages needed for page tables + Guard page
-	// 512KB Stack + Guard page
+	// Pages needed for the physical bitmap allocator + Guard page
+	// 32KiB kernel bootstrap stack + Guard page
 	// Pages needed to store system table + guard page
 	// Pages needed to store custom memory map + guard page
-	// 64MiB Kernel data area + guard page
-	// Pages needed for the task scheduler
-	const size_t totalBufferSize = PageTableReservePages + 1 + 128 + 1 + SysTablePages + 1 + bufPages + 1 + 0x4000 + 1 + SysKrnl64PageCount;
+	// Pages needed for the SysKrnl64
+	const size_t totalBufferSize = PageTableReservePages + 1 + PagesNeededForPhysAlloc + 1 + 8 + 1 + SysTablePages + 1 + bufPages + 1 + SysKrnl64PageCount;
 
 	// Allocate another buffer with space enough for all of our regions for our own memory table
 
@@ -105,17 +111,17 @@ SystemTable* SysTable::BuildSystemTable(size_t SysKrnl64PageCount, EFI_SYSTEM_TA
 	PageTablesPhys = reinterpret_cast<uintptr_t>(PageTablesAddr);
 	regionOffset += PageTableReservePages;
 	GuardPages[0] = regionOffset++;
-	uintptr_t StackAddr = regionStart + regionOffset * 0x1000;
-	regionOffset += 128;
+	uintptr_t PhysAllocAddr = regionStart + regionOffset * 0x1000;
+	regionOffset += PagesNeededForPhysAlloc;
 	GuardPages[1] = regionOffset++;
+	uintptr_t StackAddr = regionStart + regionOffset * 0x1000;
+	regionOffset += 8;
+	GuardPages[2] = regionOffset++;
 	SystemTable* System = reinterpret_cast<SystemTable*>(regionStart + regionOffset * 0x1000);
 	regionOffset += SysTablePages;
-	GuardPages[2] = regionOffset++;
+	GuardPages[3] = regionOffset++;
 	MemoryRegion* regions = reinterpret_cast<MemoryRegion*>(regionStart + regionOffset * 0x1000);
 	regionOffset += bufPages;
-	GuardPages[3] = regionOffset++;
-	uintptr_t DataRegionAddr = regionStart + regionOffset * 0x1000;
-	regionOffset += 0x4000;
 	GuardPages[4] = regionOffset++;
 	uintptr_t SysKrnl64LoadAddr = regionStart + regionOffset * 0x1000;
 	regionOffset += SysKrnl64PageCount;
@@ -275,7 +281,7 @@ SystemTable* SysTable::BuildSystemTable(size_t SysKrnl64PageCount, EFI_SYSTEM_TA
 
 	// Fill out the system table
 
-	System->memTable.regions = regions;
+	System->memTable.regions = reinterpret_cast<MemoryRegion*>(reinterpret_cast<uintptr_t>(regions) - regionStart + MapAddr);
 	System->memTable.regionCount = regionCount;
 	System->fb.fbBase = reinterpret_cast<uintptr_t>(gop) - regionStart + MapAddr;
 
@@ -421,20 +427,74 @@ SystemTable* SysTable::BuildSystemTable(size_t SysKrnl64PageCount, EFI_SYSTEM_TA
 
 	// Map an extra page for the CR3 switch
 
-	map_page(PageTables, DataRegionAddr, DataRegionAddr);
+	map_page(PageTables, StackAddr, StackAddr);
+
+	// Store memory layouts
 
 	System->memLayout.PageTableAddr = reinterpret_cast<uintptr_t>(PageTables) - regionStart + MapAddr;
 	System->memLayout.PageTablePageCount = PageTableReservePages;
+	System->memLayout.PhysAllocBitmapAddr = PhysAllocAddr - regionStart + MapAddr;
+	System->memLayout.PhysAllocBitmapPages = PagesNeededForPhysAlloc;
 	System->memLayout.StackAddr = StackAddr - regionStart + MapAddr;
-	System->memLayout.StackPageCount = 128;
-	System->memLayout.DataAreaAddr = DataRegionAddr - regionStart + MapAddr;
-	System->memLayout.DataAreaPageCount = 0x4000;
+	System->memLayout.StackPageCount = 8;
 	System->memLayout.SysKrnl64PhysAddr = SysKrnl64LoadAddr;
 	System->memLayout.SysKrnl64LoadSize = SysKrnl64PageCount * 0x1000;
 	System->memLayout.KrnlMemRegionSize = regionOffset * 0x1000;
 	System->memLayout.regionStartPhys = regionStart;
 	System->memLayout.NextPageTableFreePtr = reinterpret_cast<uintptr_t>(freeListHead);
+	System->usableRAMPages = totalMemoryPages;
 
+	// Store kernel structure memory regions
+
+	// Page Tables
+	System->kernelStructureRegions[0].phys = reinterpret_cast<uintptr_t>(PageTables);
+	System->kernelStructureRegions[0].virt = System->memLayout.PageTableAddr;
+	System->kernelStructureRegions[0].totalPages = PageTableReservePages;
+	System->kernelStructureRegions[0].guardPage = true;
+	System->kernelStructureRegions[0].writeProtected = false;
+	System->kernelStructureRegions[0].execProtected = true;
+
+	// Physical Allocator Bitmap
+	System->kernelStructureRegions[1].phys = PhysAllocAddr;
+	System->kernelStructureRegions[1].virt = System->memLayout.PhysAllocBitmapAddr;
+	System->kernelStructureRegions[1].totalPages = System->memLayout.PhysAllocBitmapPages;
+	System->kernelStructureRegions[1].guardPage = true;
+	System->kernelStructureRegions[1].writeProtected = false;
+	System->kernelStructureRegions[1].execProtected = true;
+
+	// 32KiB Bootstrap stack
+	System->kernelStructureRegions[2].phys = StackAddr;
+	System->kernelStructureRegions[2].virt = System->memLayout.StackAddr;
+	System->kernelStructureRegions[2].totalPages = System->memLayout.StackPageCount;
+	System->kernelStructureRegions[2].guardPage = true;
+	System->kernelStructureRegions[2].writeProtected = false;
+	System->kernelStructureRegions[2].execProtected = false;
+
+	// System table
+	System->kernelStructureRegions[3].phys = reinterpret_cast<uintptr_t>(System);
+	System->kernelStructureRegions[3].virt = reinterpret_cast<uintptr_t>(System) - regionStart + MapAddr;
+	System->kernelStructureRegions[3].totalPages = SysTablePages;
+	System->kernelStructureRegions[3].guardPage = true;
+	System->kernelStructureRegions[3].writeProtected = true;
+	System->kernelStructureRegions[3].execProtected = true;
+
+	// Custom memory map
+	System->kernelStructureRegions[4].phys = reinterpret_cast<uintptr_t>(regions);
+	System->kernelStructureRegions[4].virt = reinterpret_cast<uintptr_t>(System->memTable.regions);
+	System->kernelStructureRegions[4].totalPages = bufPages;
+	System->kernelStructureRegions[4].guardPage = true;
+	System->kernelStructureRegions[4].writeProtected = true;
+	System->kernelStructureRegions[4].execProtected = true;
+
+	// SysKrnl64 PT_LOAD segments
+	System->kernelStructureRegions[5].phys = reinterpret_cast<uintptr_t>(SysKrnl64LoadAddr);
+	System->kernelStructureRegions[5].virt = reinterpret_cast<uintptr_t>(SysKrnl64LoadAddr) - regionStart + MapAddr;
+	System->kernelStructureRegions[5].totalPages = SysKrnl64PageCount;
+	System->kernelStructureRegions[5].guardPage = false;
+	System->kernelStructureRegions[5].writeProtected = false;
+	System->kernelStructureRegions[5].execProtected = false;
+
+	
 	lastStatus = EFI_SUCCESS;
 	return System;
 }

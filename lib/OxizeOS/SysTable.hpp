@@ -52,13 +52,21 @@ struct KernelMemoryLayout
 	size_t PageTablePageCount;
 	uintptr_t StackAddr;
 	size_t StackPageCount;
-	uintptr_t DataAreaAddr;
-	size_t DataAreaPageCount;
 	uintptr_t SysKrnl64PhysAddr;
 	uintptr_t SysKrnl64LoadSize;
 	size_t KrnlMemRegionSize;
 	uintptr_t regionStartPhys;
 	uintptr_t NextPageTableFreePtr;
+	uintptr_t PhysAllocBitmapAddr;
+	size_t PhysAllocBitmapPages;
+};
+
+struct KernelStructureRegion
+{
+	uintptr_t phys, virt;
+	size_t totalPages;
+	bool guardPage;
+	bool writeProtected, execProtected;
 };
 
 struct SystemTable
@@ -70,4 +78,6 @@ struct SystemTable
 	uint8_t SMBIOS_VersionMinor;
 	GOPFramebuffer fb;
 	KernelMemoryLayout memLayout;
+	uint64_t usableRAMPages;
+	KernelStructureRegion kernelStructureRegions[10];
 };

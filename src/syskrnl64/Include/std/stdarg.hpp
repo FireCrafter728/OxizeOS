@@ -1,5 +1,16 @@
 #pragma once
 
+// |||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||| // 
+// |--------------------------------------------------------------------| //
+// | Minimal freestanding LIBSTDC Implementation for the OxizeOS kernel | //
+// | STDARG: various types and definitions for variadic arguments       | //
+// |--------------------------------------------------------------------| //
+// |||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||| //
+
+// ------- //
+// VA_LIST //
+// ------- //
+
 typedef __builtin_va_list va_list;
 
 #define va_start(ap, last) __builtin_va_start(ap, last)

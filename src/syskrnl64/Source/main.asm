@@ -1,28 +1,28 @@
 [bits 64]
 
+section .text
+
 ; _start
 ;
 ; Input:
 ; RDI: Pointer to the system table
-; RSI: Boolean value whether PCID is supported and CR4.PCIDE was enabled
 ;
 ; Output: None
 ;
-; Sets up the system for C++ and executes the C++ main() function
-extern main
+; Sets up the system for C++ and executes the C++ kernel_bootstrap() function, then kernel_main() function
+extern kernel_bootstrap
+extern kernel_main
 
 extern __init_array_start
 extern __init_array_end
 
 global _start
 _start:
+    ; Store the System Table ptr
+    mov [rel SysTablePtr], rdi
 
-    ; We know that the stack is page-aligned, so it's also 16-byte aligned
-    ; Since `push` decrements RSP by 8, we need to adjust alignment
-    ; by subtracting 8 from RSP to account for misalignment
-
-    sub rsp, 8
-
+    ; Align the stack to 16 bytes for SIMD instructions which require 16 byte alignment
+    and rsp, -16
     ; Construct global constructors
 
     lea rcx, [rel __init_array_end]
@@ -37,13 +37,31 @@ _start:
     add rbx, 8
     test rax, rax
     je .init_loop
+
     call rax
     jmp .init_loop
 
 .init_done:
+    ; Call the kernel bootstrap
 
-    call main
+    mov rdi, [rel SysTablePtr]
 
-halt:
+    call kernel_bootstrap
+    ; rax should contain the pointer to the end of the new stack, store it inside rsp & rbp
+
+    cli
+
+    mov rsp, rax
+    mov rbp, rsp
+
+    mov rdi, [rel SysTablePtr]
+
+    ; Call the kernel main function
+    call kernel_main
+
     cli
     hlt
+
+section .bss
+
+SysTablePtr: resq 1

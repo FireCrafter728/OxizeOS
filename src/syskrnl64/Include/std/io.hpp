@@ -1,5 +1,12 @@
 #pragma once
 
+// ||||||||||||||||||||||||||||||||||||||||||||||||||||||| // 
+// |-----------------------------------------------------| //
+// | OxizeOS Kernel Implementation                       | //
+// | IO: various functions with assembly implementations | //
+// |-----------------------------------------------------| //
+// ||||||||||||||||||||||||||||||||||||||||||||||||||||||| //
+
 #ifndef ASMCALL
 #define ASMCALL extern "C"
 #endif

@@ -1,5 +1,5 @@
 X64_TARGET_LINKFLAGS += -T linker.ld
-X64_TARGET_CXXFLAGS += -fno-exceptions -fno-rtti -fshort-wchar -mno-red-zone -fno-stack-protector -Wno-address-of-packed-member -I Include/ -I Include/std/ -include Global.hpp -I $(LIB)/OxizeOS/
+X64_TARGET_CXXFLAGS += -fno-exceptions -fno-rtti -fshort-wchar -mno-red-zone -fno-stack-protector -Wno-address-of-packed-member -fno-threadsafe-statics -I Include/ -I Include/std/ -include Global.hpp -I $(LIB)/OxizeOS/
 X64_TARGET_ASMFLAGS += -f elf64
 
 SOURCES_CPP = $(shell find Source -name '*.cpp')
