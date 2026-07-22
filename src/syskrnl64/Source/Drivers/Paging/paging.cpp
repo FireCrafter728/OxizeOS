@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+
 #include <Drivers/Paging/paging.hpp>
 
 using namespace SysKrnl64::Paging;

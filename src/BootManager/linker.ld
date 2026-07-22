@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# OxizeOS build system
+
 ENTRY(efi_main)
 
 SECTIONS

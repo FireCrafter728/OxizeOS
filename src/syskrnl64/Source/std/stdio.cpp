@@ -1,6 +1,18 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+
 #include <stdio.hpp>
 #include <io.hpp>
 #include <stdint.hpp>
+
+// ----------- //
+// DEFINITIONS //
+// ----------- //
+
+#if defined(__GNUC__) || defined(__clang__)
+#define PRINTF_ATTR(fmt_idx, arg_idx) __attribute__((format(printf, fmt_idx, arg_idx)))
+#else
+#define PRINTF_ATTR(fmt_idx, arg_idx)
+#endif
 
 // ------------------ //
 // PRINTING FUNCTIONS //
@@ -61,7 +73,7 @@ void printf_signed(int64_t number, int radix, bool upper)
 #define PRINTF_LENGTH_LONG          3
 #define PRINTF_LENGTH_LONG_LONG     4
 
-void printf(const char* fmt, ...)
+void PRINTF_ATTR(1, 2) printf(const char* fmt, ...)
 {
     va_list args;
     va_start(args, fmt);
@@ -208,32 +220,4 @@ void vprintf(const char* fmt, va_list args)
     }
 
     va_end(args);
-}
-
-// --------------------------- //
-// MEMORY MANAGEMENT FUNCTIONS //
-// --------------------------- //
-
-extern void* KernelAlloc(size_t size);
-extern void KernelFree(void* ptr);
-
-void* kmalloc(size_t size)
-{
-    return KernelAlloc(size);
-}
-
-void* kcalloc(size_t count, size_t size)
-{
-    size_t total = count * size;
-
-    void* ptr = kmalloc(total);
-    if(!ptr) return nullptr;
-
-    memset(ptr, 0, total);
-    return ptr;
-}
-
-void kfree(void* ptr)
-{
-    KernelFree(ptr);
 }

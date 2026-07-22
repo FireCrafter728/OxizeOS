@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+
 #include <fat32.hpp>
 #include <stdio.h>
 #include <stdlib.h>
@@ -2017,9 +2019,12 @@ bool FAT::SetFileData(LPCSTR filePath, void *data, m_uint32_t count)
     {
         m_uint32_t bytesToWrite = (bytesRemaining > (bpb->SectorsPerCluster * bpb->BytesPerSector)) ? (bpb->SectorsPerCluster * bpb->BytesPerSector) : bytesRemaining;
 
-        if (!gpt->WriteSectors(ClusterToLba(currentCluster), bpb->SectorsPerCluster, dataPtr))
+        m_uint8_t* clusterBuffer = reinterpret_cast<m_uint8_t*>(malloc((bpb->SectorsPerCluster * bpb->BytesPerSector)));
+        memcpy(clusterBuffer, dataPtr, bytesToWrite);
+
+        if (!gpt->WriteSectors(ClusterToLba(currentCluster), bpb->SectorsPerCluster, clusterBuffer))
         {
-            fprintf(stderr, "[FAT32] [ERROR]: Failed to write  to DISK\n");
+            fprintf(stderr, "[FAT32] [ERROR]: Failed to write to DISK\n");
             return false;
         }
 

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+
 #pragma once
 
 // ||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||| // 
@@ -20,3 +22,9 @@
 void* memset(void* ptr, int value, size_t num);
 int memcmp(const void* ptr1, const void* ptr2, size_t num);
 void* memcpy(void* dst, const void* src, size_t num);
+
+// --------------------------- //
+// CHARACTER STRING OPERATIONS //
+// --------------------------- //
+
+size_t strlen(const char* str);

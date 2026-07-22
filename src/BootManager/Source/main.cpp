@@ -1,3 +1,21 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+//
+// OxizeOS Operating System for the x86 amd64(x86_64) architecture
+// Copyright (C) 2025-2026 FireCrafter728
+//
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
 EFI_SYSTEM_TABLE* BootMgr::gSystem = nullptr;
 
 extern "C" EFI_STATUS EFIAPI efi_main(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE* System)
@@ -41,6 +59,7 @@ extern "C" EFI_STATUS EFIAPI efi_main(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE* 
 		printf("[OXIZEOS-BOOTMGR] [ERROR]: Failed to build a System Table for the kernel: %llu\r\n", sysTableBuilder.GetLastStatus());
 		HaltSystem();
 	}
+	printf("SysKrnl64 phys addr: 0x%llX, SysKrnl64 virt addr: 0x%llX\r\n", sysTable->memLayout.SysKrnl64PhysAddr, sysTable->memLayout.SysKrnl64PhysAddr - sysTableBuilder.getRegionStartAddr() + BootMgr::MapAddr);
 	elf.SetLoadAddr(&elfHandle, sysTable->memLayout.SysKrnl64PhysAddr);
 	elf.SetVirtLoadAddr(&elfHandle, sysTable->memLayout.SysKrnl64PhysAddr - sysTableBuilder.getRegionStartAddr() + BootMgr::MapAddr);
 
@@ -56,6 +75,28 @@ extern "C" EFI_STATUS EFIAPI efi_main(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE* 
 		HaltSystem();
 	}
 	sysTable->fb.fbBase = gop->Mode->FrameBufferBase;
+
+	// Call UEFI ExitBootServices
+	// For that we need the most recent UEFI Memory map key
+
+	UINTN memmapSize = 0, mapKey = 0, descriptorSize = 0;
+	UINT32 descriptorVersion = 0;
+	EFI_MEMORY_DESCRIPTOR* memmap = nullptr;
+	EFI_STATUS status = System->BootServices->GetMemoryMap(&memmapSize, memmap, &mapKey, &descriptorSize, &descriptorVersion);
+	if(status != EFI_BUFFER_TOO_SMALL)
+	{
+		printf("[BOOTMGR] [ERROR]: Failed to get the most recent UEFI memory map key, error code: 0x%llX\r\n", status);
+		HaltSystem();
+	}
+
+	// We do not need to allocate the new buffer, as the most recent mapKey should be returned
+
+	status = System->BootServices->ExitBootServices(ImageHandle, mapKey);
+	if(EFI_ERROR(status))
+	{
+		printf("[BOOTMGR] [ERROR]: Failed to exit UEFI Boot services, error code: 0x%llX, mapKey: 0x%llX\r\n", status, mapKey);
+		HaltSystem();
+	}
 	
 	// Copy ExecuteKernel function to the start of the kernel bootstrap stack
 	// mapped by both UEFI & our own page tables and execute it

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+
 #pragma once
 
 // ||||||||||||||||||||||||||||||||||||||||||||||||||||||||||| // 
@@ -79,7 +81,7 @@ namespace SysKrnl64
         {
         public:
             void Initialize();
-            static void SetGate(int interrupt, void* base, uint16_t segmentDescriptor, uint8_t flags);
+            static void SetGate(int interrupt, void* base, uint16_t segmentDescriptor, uint8_t flags, uint8_t interruptIST = 0);
             static void EnableGate(int interrupt);
             static void DisableGate(int interrupt);
         private:

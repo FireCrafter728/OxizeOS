@@ -1,3 +1,5 @@
+; SPDX-License-Identifier: GPL-3.0-or-later
+
 [bits 64]
 
 section .text
@@ -13,6 +15,18 @@ global HaltSystemImpl
 HaltSystemImpl:
 	cli
 	hlt
+
+; Pause
+;
+; Input: None
+;
+; Output: None
+;
+; executes the `pause` instruction to slow down the current core
+global Pause
+Pause:
+	pause
+	ret
 
 ; InvalidatePage
 ;
@@ -178,4 +192,17 @@ WRMSR:
 	mov edx, esi
 
 	wrmsr
+	ret
+
+; PauseCurrentCore
+;
+; Input: None
+;
+; Output: None
+;
+; Halts the current core until an interrupt occurs
+global PauseCurrentCore
+PauseCurrentCore:
+	sti
+	hlt
 	ret

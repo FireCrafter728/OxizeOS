@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+
 #include <string.hpp>
 
 // Optimized memset function operating in quad-words
@@ -78,4 +80,16 @@ void* memcpy(void* dst, const void* src, size_t num)
     for(uint8_t rb = 0; rb < rem; rb++) u8Dst[rb] = u8Src[rb];
 
     return dst;
+}
+
+size_t strlen(const char* str)
+{
+    size_t len = 0;
+    while(*str)
+    {
+        len++;
+        str++;
+    }
+
+    return len;
 }

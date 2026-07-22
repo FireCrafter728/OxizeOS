@@ -75,6 +75,7 @@ updated it to use the new **GPT** formatting tool instead of gdisk
 - Updated the `run` script, specifically the **qemu** part to use the new OVMF_CODE.fd & OVMF_VARS.fd binary files
 
 ## 2026-06-17 1.0.1.0011 Kernel Refractor and Memory Management
+
 - Added a physical memory allocator, which is a bitmap allocator for allocating physical memory in 4KiB blocks
 - Added a virtual memory allocator, which is a Red-Black tree range allocator that stores ranges describing the allocated / reserved regions, works in 4KiB blocks
 - Added a kernel heap allocator, which is similar to a linked-list allocator, but works in byte granularity and has headers before allocated memory to describe it's flags, length and the neighboring headers
@@ -88,3 +89,24 @@ updated it to use the new **GPT** formatting tool instead of gdisk
 - Added and integrated `std::expected`(C++23) to the kernel for better error handling
 - Refractored kernel headers to have descriptors about where the header is located and it's purpose
 - Added some extra comment refractoring to standard libraries
+
+## 2026-07-22 1.0.1.0012 Hardware Timers and Current Time
+
+- Changed the project license to **GPLv3**
+- Implemented drivers for the **HPET**, **LAPIC Timer**, **Invariant TSC**. **LAPIC timer** currently untested, **HPET** and **iTSC** are working
+- Implemented a **Timer** class that provides functions to pause the current LP for a specfied amount of time and also get the SystemTime struct describing the current time since a custom epoch, which is **January 1st, 2000th year, UTC 00:00:00**
+- Implemented a **Time** class that abstracts the **SystemTime** from the **Timer** class and provides human readable time data
+- Reorganized the **ACPI** driver to remove code duplications
+- Added an extra attribute to printf that makes gcc / clang compilers emit warnings if format mismatchs are detected(for example: `printf("%d\r\n", "test")` would emit a warning, because `%d` expects an `int`, but `"test"` is a string)
+- Renamed folder `lib/UEFI` to `lib/EDK2`
+- Removed the `libcppextra` library, which was not used and I didn't plan to use it in the future
+- Added a `const_array.hpp` file to the **SysKrnl64** which is similar to std::vector, but cannot be resized dynamically, but the count can be non-static and data lives on the heap
+- Made the UEFI Bootloader call `ExitBootServices()` before switching `CR3` to ensure a clean UEFI boot services shutdown
+- Updated the APIC driver to allow assigning GSIs to hardware and specifying trigger and polarity types
+- Added the `uint128_t` and `int128_t` types to **SysKrnl64** `stdint.hpp` which use the gcc `__uint128_t` and `__int128_t` types
+- Moved `kmalloc`, `kcalloc` and `kfree` in SysKrnl64 from `stdio.hpp` to `stdlib.hpp` to match the standard conventions
+- Updated the **APIC** driver to mark the **GSIs** that MADT ISO entries describe as having an IRQ remapped to them, used
+- Updated the toolchain to use binutils 2.46.1
+- Fixed a bug in the SysKrnl64 vector class that could cause double-free when using copy ctors/assignments
+- Updated the `run` script to run with linux **KVM** and host CPU emulation for more features and faster emulation
+- Noticed the `FAT32` tool is buggier than expected, and it's design is starting to cause problems, next update should handle those problems

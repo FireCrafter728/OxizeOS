@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+
+
 #include <Drivers/Interrupts/gdt.hpp>
 
 using namespace SysKrnl64::GDT;

@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# OxizeOS toolchain generation
+
 TOOLCHAIN_PREFIX_X64 = $(TOOLCHAIN)/$(X64_TARGET)
 export PATH := $(TOOLCHAIN_PREFIX_X64)/bin:$(PATH)
 

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+
 #include <Drivers/APIC/apic.hpp>
 
 using namespace SysKrnl64::APIC;
@@ -37,7 +39,6 @@ bool APIC::Initialize(ACPI::MADT* madt)
     uint8_t* buffer = reinterpret_cast<uint8_t*>(madt);
 
     uintptr_t positionInMADT = sizeof(ACPI::MADT);
-    bool LAPICAddrOverrideExists = false;
     while(true)
     {
         uint8_t* entryPtr = buffer + positionInMADT;
@@ -56,6 +57,7 @@ bool APIC::Initialize(ACPI::MADT* madt)
                     break;
                 }
                 lapicEntries.push_back(*lapic);
+
                 break;
             }
             case MADT_IOAPIC:
@@ -87,26 +89,6 @@ bool APIC::Initialize(ACPI::MADT* madt)
                     return false;
                 }
                 isoEntries.push_back(*iso);
-                break;
-            }
-            case MADT_LocalAPIC_AddressOverride:
-            {
-                if(LAPICAddrOverrideExists) {
-                    printf("[SYSKRNL] [APIC] [WARN]: MADT Contains more than 1 LAPIC Address Override entries\r\n");
-                    break;
-                }
-                ACPI::MADT_LAPIC_ADDR_OVERRIDE* lapicOverridePtr = reinterpret_cast<ACPI::MADT_LAPIC_ADDR_OVERRIDE*>(entryPtr);
-                lapicOverride = *lapicOverridePtr;
-
-                if(lapicOverride.hdr.length != sizeof(ACPI::MADT_LAPIC_ADDR_OVERRIDE)) {
-                    printf("[SYSKRNL64] [APIC] [ERROR]: Invalid LAPIC Address Override entry length 0x%llX at MADT offset 0x%llX\r\n", lapicOverride.hdr.length, positionInMADT);
-                    return false;
-                }
-                if(lapicOverride.lapicAddr == 0 || (lapicOverride.lapicAddr & (PAGE_SIZE - 1)) != 0) {
-                    printf("[SYSKRNL64] [APIC] [ERROR]: Null or misaligned LAPIC Address Override physical address 0x%llX at LAPIC Address Override entry at MADT offset 0x%llX\r\n", lapicOverride.lapicAddr, positionInMADT);
-                    return false;
-                }
-                LAPICAddrOverrideExists = true;
                 break;
             }
             case MADT_ProcessorLocalX2APIC:
@@ -147,7 +129,6 @@ bool APIC::Initialize(ACPI::MADT* madt)
     msr->WriteMSR(MSR_APIC_BASE, APICMSR);
 
     if(X2APICSupported) {
-        APICMSR = msr->ReadMSR(MSR_APIC_BASE);
         if((APICMSR & (1ULL << 10)) == 0) X2APICSupported = false; // APIC doesn't support X2APIC, even though CPUID lists it as supported
     }
 
@@ -155,9 +136,7 @@ bool APIC::Initialize(ACPI::MADT* madt)
 
     if(!X2APICSupported)
     {
-        uintptr_t lapicBasePhys = madt->lapicAddr;
-
-        if(LAPICAddrOverrideExists) lapicBasePhys = lapicOverride.lapicAddr;
+        uintptr_t lapicBasePhys = APICMSR & 0xFFFFF000;
 
         auto virtAllocRes = virtAlloc->AllocateBlocks(1, MMD::VA_NODE_FLAG_MMIO | MMD::VA_NODE_FLAG_NO_EXECUTE_ACCESS | MMD::VA_NODE_FLAG_USED);
         if(!virtAllocRes)
@@ -224,11 +203,20 @@ bool APIC::Initialize(ACPI::MADT* madt)
         }
     }
 
-    // Remap IRQs ->GSIs
+    allocatedGSIs.init(GSIs.size(), false);
 
-    // For some fucking reason APIC requires to remap IRQs to GSIs.
-    // Why the fuck is that needed when it was perfectly fine with the legacy 8259-PIC(at least for me)?
-    // Probably because of the fucking backwards compatibility which is rare to not find when developing on the x86 platform
+    // Mark all GSIs that the ISOs remap IRQs to as used, as most definetly those GSIs are already used by some other hardware, just the gates are masked and the IDT vector isn't assigned yet. 
+
+    for(size_t i = 0; i < isoEntries.size(); i++)
+    {
+        ACPI::MADT_ISO* iso = &isoEntries[i];
+        if(iso->globalSysIntr >= allocatedGSIs.size()) continue;
+        allocatedGSIs[iso->globalSysIntr] = true;
+    }
+
+    memset(allocatedIRQs, 0, sizeof(allocatedIRQs));
+
+    // Remap IRQs -> GSIs
 
     for(uint32_t i = 0; i < 16; i++) irqToGSI[i] = i;
 
@@ -238,23 +226,52 @@ bool APIC::Initialize(ACPI::MADT* madt)
         irqToGSI[iso.IRQSource] = iso.globalSysIntr;
     }
 
-    // Initialize IRQs that we want
-    InitializeIRQ(0);
-    InitializeIRQ(1);
+    // Fill in CPU Threads vector
+
+    regs = {};
+    regs = CPUID::GetCPUIDInfo(0x01, 0x00);
+    uint32_t bspAPICID = (uint32_t(regs.rbx) >> 24) & 0xFF;
+
+    if(X2APICSupported && x2ApicEntries.size() > 0)
+    {
+        cpuThreads.resize(x2ApicEntries.size());
+        for(size_t i = 0; i < x2ApicEntries.size(); i++)
+        {
+            ACPI::MADT_X2APIC* x2ApicEntry = &x2ApicEntries[i];
+            CPUThreadDesc* threadDesc = &cpuThreads[i];
+
+            threadDesc->apicId = x2ApicEntry->x2apicId;
+            threadDesc->firmwareEnabled = (x2ApicEntry->flags & 1);
+            threadDesc->bsp = x2ApicEntry->x2apicId == bspAPICID;
+        }
+    }
+    else
+    {
+        cpuThreads.resize(lapicEntries.size());
+        for(size_t i = 0; i < lapicEntries.size(); i++)
+        {
+            ACPI::MADT_LAPIC* lapicEntry = &lapicEntries[i];
+            CPUThreadDesc* threadDesc = &cpuThreads[i];
+
+            threadDesc->apicId = uint32_t(lapicEntry->apicid);
+            threadDesc->firmwareEnabled = (lapicEntry->flags & 1);
+            threadDesc->bsp = lapicEntry->apicid == bspAPICID;
+        }
+    }
 
     return true;
 }
 
 uint32_t APIC::ReadLAPIC(uint32_t reg)
 {
-    if(X2APICSupported) return msr->ReadMSR(MSR_X2APIC_BASE + (reg >> 4));
-    return *(volatile uint32_t*)(lapicBaseVirt + reg);
+    if(X2APICSupported) return msr->ReadMSR(X2APIC_MSR_BASE + (reg >> 4));
+    return *reinterpret_cast<volatile uint32_t*>(lapicBaseVirt + reg);
 }
 
 void APIC::WriteLAPIC(uint32_t reg, uint32_t value)
 {
-    if(X2APICSupported) msr->WriteMSR(MSR_X2APIC_BASE + (reg >> 4), value);
-    else *(volatile uint32_t*)(lapicBaseVirt + reg) = value;
+    if(X2APICSupported) msr->WriteMSR(X2APIC_MSR_BASE + (reg >> 4), value);
+    else *reinterpret_cast<volatile uint32_t*>(lapicBaseVirt + reg) = value;
 }
 
 uint32_t APIC::ReadIOAPIC(int index, uint32_t reg)
@@ -371,4 +388,115 @@ void APIC::InitializeIRQ(uint8_t irq)
     entry = (uint64_t)vector | IOAPIC_DELMODE_FIXED | IOAPIC_MASK | polarityTrigger | ((uint64_t)apicID << IOAPIC_DEST_SHIFT);
 
     WriteIOAPIC64(e.descIdx, 0x10 + e.pin * 2, entry);
+}
+
+std::pair<size_t, uint8_t> APIC::AllocateGSI(uint8_t trigger)
+{
+    for(size_t gsi = 0; gsi < GSIs.size(); gsi++)
+    {
+        if(allocatedGSIs[gsi]) continue;
+
+        GSIEntry& e = GSIs[gsi];
+        if(e.descIdx >= ioapicEntryCount) continue;
+
+        allocatedGSIs[gsi] = true;
+
+        uint8_t isr = AllocateISREntry();
+
+        if(!BindGSIToVector(gsi, isr, trigger)) return std::make_pair<size_t, uint8_t>(0, 0);
+
+        return std::make_pair(gsi, isr);
+    }
+
+    return std::make_pair<size_t, uint8_t>(UINT64_MAX, 0);
+}
+
+// Returns the assigned ISR, 0 if failed(since ISR 0 is reserved as a divide by zero CPU Exception)
+uint8_t APIC::AllocateSpecificGSI(uint8_t requestedGSI, uint8_t trigger)
+{
+    if(requestedGSI >= GSIs.size()) return 0;
+
+    if(allocatedGSIs[requestedGSI]) return 0;
+
+    GSIEntry& e = GSIs[requestedGSI];
+    if(e.descIdx >= ioapicEntryCount) return 0;
+    
+    allocatedGSIs[requestedGSI] = true;
+
+    uint8_t isr = AllocateISREntry();
+
+    if(!BindGSIToVector(requestedGSI, isr, trigger)) return 0;
+
+    return isr;
+}
+
+uint8_t APIC::AllocateISREntry()
+{
+    for(uint8_t irq = 0; irq < IRQ_COUNT; irq++)
+    {
+        if(allocatedIRQs[irq]) continue;
+
+        allocatedIRQs[irq] = true;
+        return irq + IRQ_BASE;
+    }
+
+    return 0xFF;
+}
+
+bool APIC::BindGSIToVector(uint8_t gsi, uint8_t vector, uint8_t trigger)
+{
+    if(gsi >= GSIs.size()) return false;
+
+    GSIEntry* e = &GSIs[gsi];
+
+    if(e->descIdx >= ioapicEntryCount) return false;
+
+    uint32_t apicID = (ReadLAPIC(0x20) >> 24) & 0xFF;
+
+    uint64_t entry = 0;
+
+    entry |= vector;
+    entry |= IOAPIC_DELMODE_FIXED;
+
+    if(trigger & IOAPIC_TRIGGER_LOW) entry |= IOAPIC_POLARITY;
+    else entry &= ~IOAPIC_POLARITY;
+
+    if(trigger & IOAPIC_TRIGGER_LEVEL) entry |= IOAPIC_TRIGGER_MODE;
+    else entry &= ~IOAPIC_TRIGGER_MODE;
+
+    entry |= (uint64_t(apicID) << IOAPIC_DEST_SHIFT);
+
+    entry &= ~IOAPIC_MASK;
+    
+    WriteIOAPIC64(e->descIdx, 0x10 + e->pin * 2, entry);
+
+    return true;
+}
+
+void APIC::dumpRedirEntries()
+{
+    printf("IOAPIC Redirection Entry dump:\r\n\r\n");
+
+    for(size_t i = 0; i < ioapicEntryCount; i++)
+    {
+        IOAPICDesc& ioapic = ioapicEntries[i];
+
+        printf("IOAPIC %u:\n", i);
+
+        for(uint32_t pin = 0; pin < ioapic.maxRedirs; pin++)
+        {
+            uint64_t entry = ReadIOAPIC64(i, 0x10 + pin * 2);
+
+            printf(
+                " GSI %u: vec=%X mask=%u trig=%s pol=%s dest=%X raw=%llX\n",
+                ioapic.entry.globalSysInterruptBase + pin,
+                (uint8_t)(entry & 0xFF),
+                (entry & IOAPIC_MASK) ? 1 : 0,
+                (entry & IOAPIC_TRIGGER_MODE) ? "level" : "edge",
+                (entry & IOAPIC_POLARITY) ? "low" : "high",
+                (uint8_t)(entry >> 56),
+                entry
+            );
+        }
+    }
 }

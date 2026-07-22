@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+
 #include <Drivers/MMD/phys.hpp>
 
 using namespace SysKrnl64::MMD;

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+
 #include <Drivers/Interrupts/idt.hpp>
 
 using namespace SysKrnl64::IDT;
@@ -12,13 +14,13 @@ void IDT::Initialize()
     IDT_Load(&idtDesc);
 }
 
-void IDT::SetGate(int interrupt, void* base, uint16_t segmentDescriptor, uint8_t flags)
+void IDT::SetGate(int interrupt, void* base, uint16_t segmentDescriptor, uint8_t flags, uint8_t interruptIST)
 {
     entries[interrupt].BaseLow = (((uintptr_t)base) & 0xFFFF);
     entries[interrupt].BaseMiddle = (((uintptr_t)base >> 16) & 0xFFFF);
     entries[interrupt].BaseHigh = (((uintptr_t)base >> 32) & 0xFFFFFFFF);
     entries[interrupt].SegmentSelector = segmentDescriptor;
-    entries[interrupt].IST = 0;
+    entries[interrupt].IST = interruptIST;
     entries[interrupt].Flags = flags;
     entries[interrupt].Reserved = 0;
 }

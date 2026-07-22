@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+
 #pragma once
 
 // ||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||| // 
@@ -13,7 +15,6 @@ namespace SysKrnl64
 {
     namespace IntHandlers
     {
-        extern size_t ticks;
         class IntHandlers
         {
         public:
@@ -21,9 +22,14 @@ namespace SysKrnl64
             IntHandlers(ISR::ISR* isr, IRQ::IRQ* irq);
             bool Initialize(ISR::ISR* isr, IRQ::IRQ* irq);
         private:
+            // APIC IRQs
             static void SpuriousInterruptHandler(ISR::Registers* regs);
-            static void PITHandler(ISR::Registers* regs);
-            static void KeyboardHandler(ISR::Registers* regs);
+
+            // CPU Exceptions
+
+            static void DoubleFaultHandler(ISR::Registers* regs);
+            static void NonMaskableInterruptHandler(ISR::Registers* regs);
+            static void MachineCheckExceptionHandler(ISR::Registers* regs); 
         };
     }
 }

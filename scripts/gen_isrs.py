@@ -1,4 +1,6 @@
-# gen_isrs.py
+#!/usr/bin/env python3
+# SPDX-License-Identifier: GPL-3.0-or-later
+# OxizeOS isr source file generation
 
 import sys
 
@@ -15,6 +17,12 @@ gen_isrs_asm = open(gen_isrs_asm_path, "w")
 # Generate C++ file
 
 # f = gen_isrs_cpp
+
+ist_indices = {
+    8: 1, # Double Fault: IST1 stack
+    2: 2, # Non-Maskable Interrupt: IST2 stack
+    18: 3 # Machine Check Exception: IST3 stack
+}
 
 f = gen_isrs_cpp
 
@@ -38,7 +46,8 @@ f.write("\nvoid ISR_InitializeGates()\n")
 f.write("{\n")
 
 for i in range(256):
-    f.write(f"\tSysKrnl64::IDT::IDT::SetGate({i}, reinterpret_cast<void*>(ISR{i}), GDT_64BIT_RING0_CODESEG, IDT_FLAG_RING0 | IDT_FLAG_GATE_64BIT_INT);\n")
+    ist = ist_indices.get(i, 0)
+    f.write(f"\tSysKrnl64::IDT::IDT::SetGate({i}, reinterpret_cast<void*>(ISR{i}), GDT_64BIT_RING0_CODESEG, IDT_FLAG_RING0 | IDT_FLAG_GATE_64BIT_INT, {ist});\n")
 
 f.write("}\n")
 

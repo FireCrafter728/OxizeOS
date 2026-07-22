@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# OxizeOS build system
+
 CXXFLAGS += -O2 -fno-exceptions -fPIC -I. -fshort-wchar -include global.hpp
 LINKFLAGS += -pie
 

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+
 #pragma once
 
 // ||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||| // 
@@ -35,6 +37,70 @@ namespace std
             reserve(initialSize);
             for(size_t i = 0; i < initialSize; i++) new (&data[i]) T(initialEntry);
             usedSize = initialSize;
+        }
+
+        vector(const vector& other)
+        {
+            if(other.reservedSize)
+            {
+                reserve(other.reservedSize);
+
+                for(size_t i = 0; i < other.usedSize; i++) new (&data[i]) T(other.data[i]);
+
+                usedSize = other.usedSize;
+            }
+        }
+
+        vector& operator=(const vector& other)
+        {
+            if(this == other) return *this;
+
+            clear();
+
+            if(other.reservedSize > reservedSize)
+            {
+                if(data) kfree(data);
+                data = nullptr;
+                reservedSize = 0;
+
+                reserve(other.reservedSize);
+            }
+
+            for(size_t i = 0; i < other.usedSize; i++) new (&data[i]) T(other.data[i]);
+
+            usedSize = other.usedSize;
+
+            return *this;
+        }
+
+        vector(vector&& other)
+        {
+            data = other.data;
+            usedSize = other.usedSize;
+            reservedSize = other.reservedSize;
+
+            other.data = nullptr;
+            other.usedSize = 0;
+            other.reservedSize = 0;
+        }
+
+        vector& operator=(vector&& other)
+        {
+            if(this == &other) return *this;
+
+            clear();
+
+            if(data) kfree(data);
+
+            data = other.data;
+            usedSize = other.usedSize;
+            reservedSize = other.reservedSize;
+
+            other.data = nullptr;
+            other.usedSize = 0;
+            other.reservedSize = 0;
+
+            return *this;
         }
 
         ~vector() {
@@ -90,7 +156,7 @@ namespace std
             if(newSize < usedSize) {
                 for(size_t i = newSize; i < usedSize; i++) data[i].~T();
                 usedSize = newSize;
-                return false;
+                return true;
             }
 
             if(newSize > reservedSize) {

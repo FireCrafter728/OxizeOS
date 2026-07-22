@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+
 #include <gpt.hpp>
 
 std::unordered_map<std::string, GUID, StringHash> GPTTypeMap = {

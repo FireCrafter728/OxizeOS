@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# OxizeOS build system
+
 ENTRY(_start)
 OUTPUT_FORMAT("elf64-x86-64")
 

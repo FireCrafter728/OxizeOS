@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+
 #include <tokenizer.hpp>
 
 bool Tokenizer::Tokenize(const std::string& line, std::vector<Token>& out)

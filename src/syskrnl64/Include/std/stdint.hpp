@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+
 #pragma once
 
 // |||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||| // 
@@ -19,6 +21,8 @@ namespace std
     typedef signed int int32_t;
     typedef unsigned long long int uint64_t;
     typedef signed long long int int64_t;
+    typedef __uint128_t uint128_t;
+    typedef __int128_t int128_t;
 
     typedef uint64_t size_t;
     typedef uint64_t uintptr_t;
@@ -33,6 +37,8 @@ using uint32_t = std::uint32_t;
 using int32_t = std::int32_t;
 using uint64_t = std::uint64_t;
 using int64_t = std::int64_t;
+using uint128_t = std::uint128_t;
+using int128_t = std::int128_t;
 using size_t = std::size_t;
 using uintptr_t = std::uintptr_t;
 using flags_t = std::flags_t;
@@ -47,6 +53,8 @@ typedef unsigned int uint32_t;
 typedef signed int int32_t;
 typedef unsigned long long int uint64_t;
 typedef signed long long int int64_t;
+typedef __uint128_t uint128_t;
+typedef __int128_t int128_t;
 
 typedef uint64_t size_t;
 typedef uint64_t uintptr_t;

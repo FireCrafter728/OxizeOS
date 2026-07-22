@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+
 #include <gpt.hpp>
 
 using namespace FAT32::GPT;

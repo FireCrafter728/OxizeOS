@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# OxizeOS build system
+
 include scripts/config.mk
 
 .PHONY: all bootmgr syskrnl64 tools tools-fat tools-image tools-gpt toolchain image dir clean

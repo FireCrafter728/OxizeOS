@@ -1,3 +1,5 @@
+; SPDX-License-Identifier: GPL-3.0-or-later
+
 [bits 64]
 
 section .text
@@ -55,7 +57,7 @@ isr_common:
     mov ds, ax
     mov es, ax
 
-    ; Call the C++ handler, and assume the stack is already 8-byte misaligned from 16 bytes
+    ; Call the C++ handler
     mov rdi, rsp
     sub rsp, 8 ; misalign the stack by 8
     call ISR_Handler

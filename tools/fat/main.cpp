@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+
 #include <gpt.hpp>
 #include <fat32.hpp>
 #include <disk.hpp>

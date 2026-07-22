@@ -1,3 +1,21 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+//
+// OxizeOS Operating System for the x86 amd64(x86_64) architecture
+// Copyright (C) 2025-2026 FireCrafter728
+//
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
 #include <SysTableBuilder.hpp>
 
 using namespace BootMgr::SysTable;
@@ -61,6 +79,18 @@ SystemTable* SysTable::BuildSystemTable(size_t SysKrnl64PageCount, EFI_SYSTEM_TA
 			case EfiACPIReclaimMemory: totalMemoryPages += desc->NumberOfPages; break;
 			default: break;
 		}
+	}
+
+	// Allocate a page for SMP Thread bring up code
+	// The page must be below the 1MiB, as SMP Thread bring up starts in the 16-bit real mode without the BIOS,
+	// And the page will contain code to bring the SMP thread into 64-bit long mode, enable paging, setup GDT, TR, IDT and the stack
+
+	EFI_PHYSICAL_ADDRESS bringupPageLimit = 0xFFFFFF;
+	lastStatus = gSystem->BootServices->AllocatePages(AllocateMaxAddress, EfiLoaderData, 1, &bringupPageLimit);
+	if(EFI_ERROR(lastStatus))
+	{
+		printf("[BOOTMGR] [SysTableBuilder] [ERROR]: Failed to allocate a page for SMP Thread bring up\r\n");
+		return nullptr;
 	}
 
 	// Get page count needed for the page tables
@@ -199,7 +229,7 @@ SystemTable* SysTable::BuildSystemTable(size_t SysKrnl64PageCount, EFI_SYSTEM_TA
 		uintptr_t descStart = desc->PhysicalStart;
 		uintptr_t descEnd = descStart + desc->NumberOfPages * 0x1000;
 		uintptr_t allocEnd = regionStart + totalBufferSize * 0x1000;
-		if(desc->Type == EfiLoaderData && descStart < allocEnd && regionStart < descEnd && !remapped) {
+		if(!remapped && desc->Type == EfiLoaderData && descStart < allocEnd && regionStart < descEnd) {
 			if(regionStart <= descStart && allocEnd >= descEnd) {
 				convType = MEMTYPE_SOFTWARE_RESERVED;
 				remapped = true;
@@ -253,6 +283,73 @@ SystemTable* SysTable::BuildSystemTable(size_t SysKrnl64PageCount, EFI_SYSTEM_TA
 
 				remapped = true;
 				lastRegion = newRegion;
+				continue;
+			}
+		}
+
+		// Check if the region overlaps the SMP Thread bring up code page
+		bool remapped2 = false;
+		if(!remapped2 && desc->Type == EfiLoaderData && bringupPageLimit >= descStart && bringupPageLimit < descEnd)
+		{
+			if(bringupPageLimit == descStart && bringupPageLimit + 0x1000 == descEnd)
+			{
+				remapped2 = true;
+				convType = MEMTYPE_SOFTWARE_RESERVED;
+			}
+			else if(bringupPageLimit > descStart && bringupPageLimit + 0x1000 == descEnd)
+			{
+				MemoryRegion* regionBefore = &regions[regionCount++];
+				regionBefore->phys = descStart;
+				regionBefore->length = (desc->NumberOfPages - 1) * 0x1000;
+				regionBefore->type = MEMTYPE_USABLE;
+				
+				MemoryRegion* bringupRegion = &regions[regionCount++];
+				bringupRegion->phys = bringupPageLimit;
+				bringupRegion->length = 0x1000;
+				bringupRegion->type = MEMTYPE_SOFTWARE_RESERVED;
+
+				remapped2 = true;
+				lastRegion = bringupRegion;
+
+				continue;
+			}
+			else if(bringupPageLimit == descStart && bringupPageLimit + 0x1000 <= descEnd)
+			{				
+				MemoryRegion* bringupRegion = &regions[regionCount++];
+				bringupRegion->phys = bringupPageLimit;
+				bringupRegion->length = 0x1000;
+				bringupRegion->type = MEMTYPE_SOFTWARE_RESERVED;
+
+				MemoryRegion* regionAfter = &regions[regionCount++];
+				regionAfter->phys = bringupPageLimit + 0x1000;
+				regionAfter->length = (desc->NumberOfPages - 1) * 0x1000;
+				regionAfter->type = MEMTYPE_USABLE;
+
+				remapped2 = true;
+				lastRegion = regionAfter;
+
+				continue;
+			}
+			else
+			{
+				MemoryRegion* regionBefore = &regions[regionCount++];
+				regionBefore->phys = descStart;
+				regionBefore->length = bringupPageLimit - descStart;
+				regionBefore->type = MEMTYPE_USABLE;
+				
+				MemoryRegion* bringupRegion = &regions[regionCount++];
+				bringupRegion->phys = bringupPageLimit;
+				bringupRegion->length = 0x1000;
+				bringupRegion->type = MEMTYPE_SOFTWARE_RESERVED;
+
+				MemoryRegion* regionAfter = &regions[regionCount++];
+				regionAfter->phys = bringupPageLimit + 0x1000;
+				regionAfter->length = descEnd - (bringupPageLimit + 0x1000);
+				regionAfter->type = MEMTYPE_USABLE;
+
+				remapped2 = true;
+				lastRegion = regionAfter;
+
 				continue;
 			}
 		}
@@ -429,6 +526,10 @@ SystemTable* SysTable::BuildSystemTable(size_t SysKrnl64PageCount, EFI_SYSTEM_TA
 
 	map_page(PageTables, StackAddr, StackAddr);
 
+	// Identity map the SMP Bringup bootstrap code page
+
+	map_page(PageTables, bringupPageLimit, bringupPageLimit);
+
 	// Store memory layouts
 
 	System->memLayout.PageTableAddr = reinterpret_cast<uintptr_t>(PageTables) - regionStart + MapAddr;
@@ -442,6 +543,7 @@ SystemTable* SysTable::BuildSystemTable(size_t SysKrnl64PageCount, EFI_SYSTEM_TA
 	System->memLayout.KrnlMemRegionSize = regionOffset * 0x1000;
 	System->memLayout.regionStartPhys = regionStart;
 	System->memLayout.NextPageTableFreePtr = reinterpret_cast<uintptr_t>(freeListHead);
+	System->memLayout.SMPThreadBringupPageAddr = bringupPageLimit;
 	System->usableRAMPages = totalMemoryPages;
 
 	// Store kernel structure memory regions
@@ -494,6 +596,67 @@ SystemTable* SysTable::BuildSystemTable(size_t SysKrnl64PageCount, EFI_SYSTEM_TA
 	System->kernelStructureRegions[5].writeProtected = false;
 	System->kernelStructureRegions[5].execProtected = false;
 
+	// SMP Bringup bootstrap code page
+	System->kernelStructureRegions[6].phys = reinterpret_cast<uintptr_t>(bringupPageLimit);
+	System->kernelStructureRegions[6].virt = reinterpret_cast<uintptr_t>(bringupPageLimit);
+	System->kernelStructureRegions[6].totalPages = 1;
+	System->kernelStructureRegions[6].guardPage = false;
+	System->kernelStructureRegions[6].writeProtected = false;
+	System->kernelStructureRegions[6].execProtected = false;
+
+	// Get Boot Time and convert it to our own format and retrieve TSC value
+
+	EFI_TIME bootTime;
+	EFI_TIME_CAPABILITIES timeCaps;
+	lastStatus = gSystem->RuntimeServices->GetTime(&bootTime, &timeCaps);
+
+	if(EFI_ERROR(lastStatus)) 
+	{
+		printf("[BOOTMGR] [SysTableBuilder] [ERROR]: Failed to get current system time\r\n");
+		return nullptr;
+	}
+	System->bootTime.tscCounter = RDTSC();
+
+	constexpr uint8_t DaysPerMonth[] = {31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
+
+	auto isLeapYear = [](uint32_t year) -> bool
+	{
+		return (year % 4 == 0) && ((year % 100) != 0 || (year % 400) == 0);
+	};
+
+	if(bootTime.Year < 2000)
+	{
+		System->bootTime.systemTime.SecondsSinceEpoch = 0;
+		System->bootTime.systemTime.Nanoseconds = 0;
+	}
+	else
+	{
+		int64_t days = 0;
+
+		for(uint16_t year = 2000; year < bootTime.Year; year++) days += isLeapYear(year) ? 366 : 365;
+
+		for(uint8_t month = 1; month < bootTime.Month; month++)
+		{
+			days += DaysPerMonth[month - 1];
+			if(month == 2 && isLeapYear(bootTime.Year)) days++;
+		}
+
+		days += bootTime.Day - 1;
+		int64_t seconds = days * 86400 + static_cast<int64_t>(bootTime.Hour) * 3600 + static_cast<int64_t>(bootTime.Minute) * 60 + bootTime.Second;
+
+		if(bootTime.TimeZone != EFI_UNSPECIFIED_TIMEZONE) seconds -= static_cast<int64_t>(bootTime.TimeZone) * 60;
+
+		if(seconds < 0)
+		{
+			System->bootTime.systemTime.SecondsSinceEpoch = 0;
+			System->bootTime.systemTime.Nanoseconds = 0;
+		}
+		else
+		{
+			System->bootTime.systemTime.SecondsSinceEpoch = static_cast<uint64_t>(seconds);
+			System->bootTime.systemTime.Nanoseconds = bootTime.Nanosecond;
+		}
+	}
 	
 	lastStatus = EFI_SUCCESS;
 	return System;

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+
 #pragma once
 
 // |||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||| // 
@@ -10,6 +12,7 @@
 #include <Drivers/ACPI/acpi.hpp>
 
 #include <stdint.hpp>
+#include <const_array.hpp>
 
 namespace SysKrnl64
 {
@@ -70,6 +73,23 @@ namespace SysKrnl64
             uint32_t pin;
         };
 
+        struct CPUThreadDesc
+        {
+            uint32_t apicId;
+            bool firmwareEnabled, bsp;
+        };
+
+        enum IOAPICTriggerMode : uint8_t
+        {
+            // Edge or Level trigerred? Edge = 0, Level = 1
+            IOAPIC_TRIGGER_EDGE = 0,
+            IOAPIC_TRIGGER_LEVEL = (1 << 0),
+
+            // High or Low polarity? High = 0, Low = 1
+            IOAPIC_TRIGGER_HIGH = 0,
+            IOAPIC_TRIGGER_LOW = (1 << 1),
+        };
+
         class APIC
         {
         public:
@@ -77,9 +97,13 @@ namespace SysKrnl64
             APIC(ACPI::MADT* madt);
             bool Initialize(ACPI::MADT* madt);
             void SendEOI();
-        private:
+            inline std::vector<CPUThreadDesc> getCPUThreads() { return cpuThreads; }
             uint32_t ReadLAPIC(uint32_t reg);
             void WriteLAPIC(uint32_t reg, uint32_t value);
+            std::pair<size_t, uint8_t> AllocateGSI(uint8_t trigger);
+            uint8_t AllocateSpecificGSI(uint8_t requestedGSI, uint8_t trigger);
+            void dumpRedirEntries();
+        private:
             uint32_t ReadIOAPIC(int index, uint32_t reg);
             void WriteIOAPIC(int index, uint32_t reg, uint32_t value);
             uint64_t ReadIOAPIC64(int index, uint32_t reg);
@@ -87,17 +111,27 @@ namespace SysKrnl64
             GSIEntry ResolveGSI(uint32_t gsi);
             uint64_t BuildPolarityTrigger(uint16_t flags);
             void InitializeIRQ(uint8_t irq);
+            uint8_t AllocateISREntry();
+            bool BindGSIToVector(uint8_t gsi, uint8_t vector, uint8_t trigger);
+
             ACPI::MADT* madt;
+
             std::vector<ACPI::MADT_LAPIC> lapicEntries;
             std::vector<ACPI::MADT_X2APIC> x2ApicEntries;
             IOAPICDesc ioapicEntries[4];
             std::vector<ACPI::MADT_ISO> isoEntries;
+
             std::vector<GSIEntry> GSIs;
-            ACPI::MADT_LAPIC_ADDR_OVERRIDE lapicOverride;
-            bool X2APICSupported = false;
+            stdEx::const_array<bool> allocatedGSIs;
+            bool allocatedIRQs[IRQ_COUNT];
+
             uintptr_t lapicBaseVirt = 0;
             size_t ioapicEntryCount = 0;
             uint32_t irqToGSI[16];
+            
+            bool X2APICSupported = false;
+
+            std::vector<CPUThreadDesc> cpuThreads;
         };
     }
 }

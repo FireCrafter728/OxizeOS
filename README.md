@@ -10,17 +10,17 @@
 
 ## About
 
+This project is licensed under the **GNU General Public License version 3.0**
 **OxizeOS** is an OS that is currently under developement, running in `UEFI`
-and uses it's own UEFI bootloader, currently very minimal
-Currently, **OxizeOS** is in the very early stages of developement, and has recently
-been completely restarted, abandoning the old **32-bit** Attempt, and targeting **64-bit**
-long mode
+and uses it's own UEFI bootloader, for now very minimal
+**OxizeOS** is in the very early stages of developement, currently working on
+the kernel(SysKrnl64)
 
 ## Building
 
 1. You need to make sure you have all the dependencies installed on your system.
 To make sure you have them installed, view the **Dependencies** section of this README.
-2. Then you need to build the `gcc 15.2.0` & `binutils 2.46.0` toolchains. to do that,
+2. Then you need to build the `gcc 16.1.0` & `binutils 2.46.1` toolchains. to do that,
 run `make toolchain`.
 3. Then you need to build the internal parts & build the image. for that, run `make`,
 and optionally the `-s` flag for cleaner output. To run a multi-threaded build, run `./build`
@@ -29,13 +29,13 @@ and optionally the `-s` flag for cleaner output. To run a multi-threaded build, 
 
 ## Dependencies
 
-This OS depends on a lot of things. here are they, grouped by their use:
+This OS depends on a handful of things. here are they, grouped by their use:
 
 ### Building the toolchain
 
 For this you need:
 
-- Working `GCC` & `Binutils` with full **C++14** support(I recommend `GCC 9.1+`)
+- Working `GCC` & `Binutils` with full **C++14** support(I recommend at least `GCC 9.1`, preferrably later)
 - libraries `libgmp-dev`, `libmpfr-dev`, `libmpc-dev`, `libisl-dev`
 - tools `flex`, `bison`, `gawk`, `make`, `tar`, `wget`
 
@@ -43,8 +43,8 @@ For this you need:
 
 For this you need:
 
-- To make sure the toolchain is installed correctly & working
-- Working base `GCC` & `Binutils` with **C++23** support (I recommend `GCC 14/15` or later)
+- To make sure the toolchain is installed correctly
+- Working base `GCC` & `Binutils` with **C++23** support (I recommend at least `GCC 14`, preferrably the latest version)
 - tools `gdisk`, `dd`, `nasm`, `mingw-w64`
 - `python3` installed for scripts
 
@@ -67,9 +67,9 @@ in the script have changed
 
 - This OS is currently in the **Early-Developement** stages, might contain bugs and is
 subject to change. **It might crash, brick your system or damage internal components**
-on real hardware on poorly/not tested at all snapshots/releases. Use it at your own risk.
-We recommend using it on a **VM**, like **qemu**, **Virtual Box** or **VMware**.
-- This OS is running on **UEFI** and needs a chipset that has **PCIe** support(like **ICH9**),
+on real hardware on poorly/not tested at all developement updates/releases. Use it at your own risk.
+I recommend using it on a **VM**, like **qemu**, **Virtual Box** or **VMware**.
+- This OS is running on **UEFI** and needs a chipset that has **PCIe** support,
 **PCI** is not supported
-- This OS might have a **lack of drivers**, since they are **community-developed**,
+- This OS might have a **lack of drivers**, since they mostly are **community-developed**,
 not by the manufacturers.

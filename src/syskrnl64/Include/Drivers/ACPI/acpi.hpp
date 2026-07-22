@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+
 #pragma once
 
 // |||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||| // 
@@ -19,6 +21,10 @@ namespace SysKrnl64
 {
     namespace ACPI
     {
+        // --------------- //
+        // Core structures //
+        // --------------- //
+
         struct PACK RSDP
         {
             // RSDP
@@ -54,6 +60,10 @@ namespace SysKrnl64
             uintptr_t entries[];
         };
 
+        // -------------------- //
+        // PCIe MCFG Structures //
+        // -------------------- //
+
         struct PACK MCFGEntry
         {
             uint64_t BaseAddr;
@@ -69,6 +79,10 @@ namespace SysKrnl64
             uint64_t Reserved;
             MCFGEntry entries[];
         };
+
+        // -------------------- //
+        // APIC MADT Structures //
+        // -------------------- //
 
         struct PACK MADT
         {
@@ -143,6 +157,39 @@ namespace SysKrnl64
             uint8_t lint, reserved[3];
         };
 
+        // --------------- //
+        // HPET Structures //
+        // --------------- //
+
+        struct PACK HPET_Address
+        {
+            uint8_t addressSpaceID; // 0: system memory, 1: system I/O
+            uint8_t registerBitWidth;
+            uint8_t registerBitOffset;
+            uint8_t _Reserved;
+            uintptr_t address;
+        };
+
+        struct PACK HPET_Attributes
+        {   
+            uint8_t comparatorCount : 5;
+            uint8_t counterSize : 1;
+            uint8_t reserved : 1;
+            uint8_t legacyReplacement : 1;
+        };
+
+        struct PACK HPET
+        {
+            ACPISDTHeader hdr;
+            uint8_t hardwareRevisionID;
+            HPET_Attributes attributes;
+            uint16_t vendorID;
+            HPET_Address address;
+            uint8_t hpetNumber;
+            uint16_t minimumTick;
+            uint8_t pageProtection;
+        };
+
         class ACPI
         {
         public:
@@ -151,16 +198,20 @@ namespace SysKrnl64
             bool Initialize(SystemTable* System);
             MCFG* GetMCFG();
             MADT* GetMADT();
+            HPET* GetHPET();
         private:
+            ACPISDTHeader* GetMappedStructure(uint32_t signature);
             RSDP* rsdp;
             XSDT* xsdt;
             size_t xsdtEntries;
             MCFG* mcfg;
             MADT* madt;
+            HPET* hpet;
             static constexpr char RSDPSignature[8] = {'R', 'S', 'D', ' ', 'P', 'T', 'R', ' '};
             static constexpr char XSDTSignature[4] = {'X', 'S', 'D', 'T'};
-            static constexpr char MCFGSignature[4] = {'M', 'C', 'F', 'G'};
-            static constexpr char MADTSignature[4] = {'A', 'P', 'I', 'C'};
+            static constexpr uint32_t MCFGSignature = 0x4746434D;
+            static constexpr uint32_t MADTSignature = 0x43495041;
+            static constexpr uint32_t HPETSignature = 0x54455048;
         };
     }
 }

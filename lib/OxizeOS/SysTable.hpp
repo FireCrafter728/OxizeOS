@@ -1,4 +1,30 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+//
+// OxizeOS Operating System for the x86 amd64(x86_64) architecture
+// Copyright (C) 2025-2026 FireCrafter728
+//
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
 #pragma once
+
+// |||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||| // 
+// |----------------------------------------------------------------------------------------------------------------------------------| //
+// | OxizeOS Kernel Implementation                                                                                                    | //
+// | SysTable: contains various enums and structures for the System Table provided by the Boot Manager and used by the OxizeOS Kernel | //
+// |----------------------------------------------------------------------------------------------------------------------------------| //
+// |||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||| //
+
 #include <stdint.h>
 
 enum MemoryRegionType : uint8_t
@@ -59,6 +85,7 @@ struct KernelMemoryLayout
 	uintptr_t NextPageTableFreePtr;
 	uintptr_t PhysAllocBitmapAddr;
 	size_t PhysAllocBitmapPages;
+	uintptr_t SMPThreadBringupPageAddr;
 };
 
 struct KernelStructureRegion
@@ -67,6 +94,19 @@ struct KernelStructureRegion
 	size_t totalPages;
 	bool guardPage;
 	bool writeProtected, execProtected;
+};
+
+// Uses a custom epoch, which is January 1st, 2000th year, UTC 00:00:00
+struct SystemTime
+{
+	uint64_t SecondsSinceEpoch;
+	uint32_t Nanoseconds;
+};
+
+struct BootTimestamp
+{
+	SystemTime systemTime;
+	uint64_t tscCounter;
 };
 
 struct SystemTable
@@ -80,4 +120,5 @@ struct SystemTable
 	KernelMemoryLayout memLayout;
 	uint64_t usableRAMPages;
 	KernelStructureRegion kernelStructureRegions[10];
+	BootTimestamp bootTime;
 };

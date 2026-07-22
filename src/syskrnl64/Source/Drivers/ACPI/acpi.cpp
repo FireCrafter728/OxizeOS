@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+
 #include <Drivers/ACPI/acpi.hpp>
 
 using namespace SysKrnl64::ACPI;
@@ -105,64 +107,49 @@ bool ACPI::Initialize(SystemTable* System)
 
 MCFG* ACPI::GetMCFG()
 {
-    // Iterate over XSDT Entries to find the MCFG Pointer
-
-    for(size_t i = 0; i < xsdtEntries; i++)
+    if(this->mcfg) return this->mcfg;
+    ACPISDTHeader* hdr = GetMappedStructure(MCFGSignature);
+    if(!hdr)
     {
-        // Map entry
-
-        auto virtAllocRes = virtAlloc->AllocateBlocks(1, MMD::VA_NODE_FLAG_MMIO | MMD::VA_NODE_FLAG_NO_EXECUTE_ACCESS | MMD::VA_NODE_FLAG_USED);
-        if(!virtAllocRes)
-        {
-            printf("[SYSKRNL64] [ACPI] [ERROR]: Failed to allocate memory for a XSDT entry\r\n");
-            return nullptr;
-        }
-        paging->MapArea(xsdt->entries[i], reinterpret_cast<uintptr_t>(virtAllocRes.value()), 1, PTE_PRESENT | PTE_RW | PTE_NX);
-        ACPISDTHeader* entry = reinterpret_cast<ACPISDTHeader*>(reinterpret_cast<uintptr_t>(virtAllocRes.value()) + (xsdt->entries[i] & 0xFFF));
-
-        // Check if entry is MCFG
-
-        if(memcmp(entry->Signature, reinterpret_cast<const void*>(MCFGSignature), 4) != 0) {
-            paging->FreeArea(reinterpret_cast<uintptr_t>(entry), 1);
-            virtAlloc->FreeBlocks(virtAllocRes.value());
-            continue;
-        }
-
-        // Map entire MCFG
-
-        size_t mapPages = PAGE_ALIGN_UP(entry->Length) / PAGE_SIZE;
-
-        paging->FreeArea(reinterpret_cast<uintptr_t>(entry), 1);
-        virtAlloc->FreeBlocks(virtAllocRes.value());
-
-        virtAllocRes = virtAlloc->AllocateBlocks(mapPages, MMD::VA_NODE_FLAG_MMIO | MMD::VA_NODE_FLAG_NO_EXECUTE_ACCESS | MMD::VA_NODE_FLAG_USED);
-        if(!virtAllocRes)
-        {
-            printf("[SYSKRNL64] [ACPI] [ERROR]: Failed to allocate %d blocks for the MCFG ACPI entry\r\n", mapPages);
-            return nullptr;
-        }
-        paging->MapArea(xsdt->entries[i], reinterpret_cast<uintptr_t>(virtAllocRes.value()), mapPages, PTE_PRESENT | PTE_RW | PTE_NX);
-        this->mcfg = reinterpret_cast<MCFG*>(reinterpret_cast<uintptr_t>(virtAllocRes.value()) + (xsdt->entries[i] & 0xFFF));
-
-        // Validate Checksum
-
-        const uint8_t* bytes = reinterpret_cast<const uint8_t*>(this->mcfg);
-        uint8_t sum = 0;
-        for(size_t i = 0; i < this->mcfg->sdt.Length; i++) sum += bytes[i];
-        if(sum != 0) {
-            printf("[SYSKRNL64] [ACPI] [ERROR]: MCFG is INVALID!\r\n");
-            return nullptr;
-        }
-
-        return this->mcfg;
+        printf("[SYSKRNL64] [ACPI] [ERROR]: No MCFG Structure present in the ACPI\r\n");
+        return nullptr;
     }
 
-    return nullptr;
+    this->mcfg = reinterpret_cast<MCFG*>(hdr);
+    return this->mcfg;
 }
 
 MADT* ACPI::GetMADT()
 {
-    // Iterate over XSDT Entries to find the MADT Pointer
+    if(this->madt) return this->madt;
+    ACPISDTHeader* hdr = GetMappedStructure(MADTSignature);
+    if(!hdr)
+    {
+        printf("[SYSKRNL64] [ACPI] [ERROR]: No MADT Structure present in the ACPI\r\n");
+        return nullptr;
+    }
+
+    this->madt = reinterpret_cast<MADT*>(hdr);
+    return this->madt;
+}
+
+HPET* ACPI::GetHPET()
+{
+    if(this->hpet) return this->hpet;
+    ACPISDTHeader* hdr = GetMappedStructure(HPETSignature);
+    if(!hdr)
+    {
+        printf("[SYSKRNL64] [ACPI] [ERROR]: No HPET Structure present in the ACPI\r\n");
+        return nullptr;
+    }
+
+    this->hpet = reinterpret_cast<HPET*>(hdr);
+    return this->hpet;
+}
+
+ACPISDTHeader* ACPI::GetMappedStructure(uint32_t signature)
+{
+    // Iterate over XSDT Entries to find the first entry with the correct signature
 
     for(size_t i = 0; i < xsdtEntries; i++)
     {
@@ -177,41 +164,43 @@ MADT* ACPI::GetMADT()
         paging->MapArea(xsdt->entries[i], reinterpret_cast<uintptr_t>(virtAllocRes.value()), 1, PTE_PRESENT | PTE_RW | PTE_NX);
         ACPISDTHeader* entry = reinterpret_cast<ACPISDTHeader*>(reinterpret_cast<uintptr_t>(virtAllocRes.value()) + (xsdt->entries[i] & 0xFFF));
 
-        // Check if entry is MADT
+        // Check if entry is the one we're searching for
 
-        if(memcmp(entry->Signature, reinterpret_cast<const void*>(MADTSignature), 4) != 0) {
-            paging->FreeArea(reinterpret_cast<uintptr_t>(entry), 1);
+        uint32_t entrySig32 = *reinterpret_cast<uint32_t*>(&entry->Signature);
+
+        if(entrySig32 != signature) {
+            paging->FreeArea(PAGE_ALIGN_DOWN(reinterpret_cast<uintptr_t>(entry)), 1);
             virtAlloc->FreeBlocks(virtAllocRes.value());
             continue;
         }
 
-        // Map entire MADT
+        // Map the entire structure
 
         size_t mapPages = PAGE_ALIGN_UP(entry->Length) / PAGE_SIZE;
 
-        paging->FreeArea(reinterpret_cast<uintptr_t>(entry), 1);
+        paging->FreeArea(PAGE_ALIGN_DOWN(reinterpret_cast<uintptr_t>(entry)), 1);
         virtAlloc->FreeBlocks(virtAllocRes.value());
 
         virtAllocRes = virtAlloc->AllocateBlocks(mapPages, MMD::VA_NODE_FLAG_MMIO | MMD::VA_NODE_FLAG_NO_EXECUTE_ACCESS | MMD::VA_NODE_FLAG_USED);
         if(!virtAllocRes)
         {
-            printf("[SYSKRNL64] [ACPI] [ERROR]: Failed to allocate %d blocks for MADT ACPI Entry\r\n", mapPages);
+            printf("[SYSKRNL64] [ACPI] [ERROR]: Failed to allocate %d blocks for a XSDT Entry\r\n", mapPages);
             return nullptr;
         }
         paging->MapArea(xsdt->entries[i], reinterpret_cast<uintptr_t>(virtAllocRes.value()), mapPages, PTE_PRESENT | PTE_RW | PTE_NX);
-        this->madt = reinterpret_cast<MADT*>(reinterpret_cast<uintptr_t>(virtAllocRes.value()) + (xsdt->entries[i] & 0xFFF));
+        entry = reinterpret_cast<ACPISDTHeader*>(reinterpret_cast<uintptr_t>(virtAllocRes.value()) + (xsdt->entries[i] & 0xFFF));
 
         // Validate Checksum
 
-        const uint8_t* bytes = reinterpret_cast<const uint8_t*>(this->madt);
+        const uint8_t* bytes = reinterpret_cast<const uint8_t*>(entry);
         uint8_t sum = 0;
-        for(size_t i = 0; i < this->madt->sdt.Length; i++) sum += bytes[i];
+        for(size_t i = 0; i < entry->Length; i++) sum += bytes[i];
         if(sum != 0) {
-            printf("[SYSKRNL64] [ACPI] [ERROR]: MDAT is INVALID!\r\n");
+            printf("[SYSKRNL64] [ACPI] [ERROR]: XSDT Entry %d is INVALID!\r\n", i);
             return nullptr;
         }
 
-        return this->madt;
+        return entry;
     }
 
     return nullptr;

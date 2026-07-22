@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+
 #pragma once
 
 // |||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||| // 
@@ -9,26 +11,23 @@
 
 #include <stdint.hpp>
 
-extern "C"
+// ------------ //
+// OPERATOR NEW //
+// ------------ //
+
+inline void* operator new(unsigned long int, void* ptr) noexcept
 {
-    // ------------ //
-    // OPERATOR NEW //
-    // ------------ //
-
-    inline void* operator new(unsigned long int, void* ptr) noexcept
-    {
-        return ptr;
-    }
-
-    inline void* operator new[](unsigned long int, void* ptr) noexcept
-    {
-        return ptr;
-    }
-
-    // --------------- //
-    // OPERATOR DELETE //
-    // --------------- //
-
-    inline void operator delete(void*, void*) {};
-    inline void operator delete[](void*, void*) {};
+    return ptr;
 }
+
+inline void* operator new[](unsigned long int, void* ptr) noexcept
+{
+    return ptr;
+}
+
+// --------------- //
+// OPERATOR DELETE //
+// --------------- //
+
+inline void operator delete(void*, void*) {};
+inline void operator delete[](void*, void*) {};

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+
 const uint16_t GDT_64BIT_RING0_CODESEG = 0x08;
 const uint16_t GDT_64BIT_RING0_DATASEG = 0x10;
 const uint16_t GDT_64BIT_RING3_CODESEG = 0x18;
@@ -17,6 +19,8 @@ SysKrnl64::MMD::PhysAlloc* SysKrnl64::physAlloc;
 SysKrnl64::MMD::VirtAlloc* SysKrnl64::virtAlloc;
 SysKrnl64::MMD::HeapAlloc* SysKrnl64::heapAlloc;
 
+SysKrnl64::GDT::GDT_Entry* SysKrnl64::gdtEntries;
+
 // Static class defs to survive the stack switch
 
 static SysKrnl64::Paging::Paging s_paging;
@@ -29,8 +33,9 @@ static SysKrnl64::MMD::HeapAlloc s_heapAlloc;
 static SysKrnl64::GDT::GDT s_gdt;
 static SysKrnl64::IDT::IDT s_idt;
 static SysKrnl64::ISR::ISR s_isr;
+static SysKrnl64::GDT::TSS s_tss;
 
-static SysKrnl64::GDT::GDT_Entry s_gdtEntries[] = {	
+static SysKrnl64::GDT::GDT_Entry s_gdtEntries[TOTAL_GDT_ENTRIES] = {	
 	// NULL Entry, offset 0x00
 	GDT_ENTRY(0, 0, 0, 0),
 
@@ -45,6 +50,8 @@ static SysKrnl64::GDT::GDT_Entry s_gdtEntries[] = {
 
 	// Ring 3 64-bit data segment entry, offset 0x20
 	GDT_ENTRY(0, 0xFFFFF, GDT_ACCESS_DATA_SEGMENT | GDT_ACCESS_DATA_WRITEABLE | GDT_ACCESS_RING3 | GDT_ACCESS_PRESENT, GDT_FLAG_64BIT | GDT_FLAG_GRANULARITY_4K),
+
+	// Other slots reserved for TSS Descriptors
 };
 
 // kernel bootstrap function, sets up the kernel to it's final expected state and returns the pointer to the end of the new stack to switch to
@@ -54,9 +61,13 @@ extern "C" uint64_t kernel_bootstrap(SystemTable* System)
 
 	DisableInterrupts();
 
-	printf("[SYSKRNL64] [INFO]: Initialized logfile\r\n");
+	printf("[SYSKRNL64] [INFO]: OxizeOS x86-64 Kernel version 1.0.0 build 0012. Copyright (C) 2025-2026 OxizeOS authors, contributors\r\n");
+	printf("[SYSKRNL64] [INFO]: Project licensed under GNU General Public License v3.0 or later\r\n");
+	printf("-------------------------------------------------------------------------------------------------------------------------\r\n");
 
-	// Setup MSRs
+	// ---------- //
+	// Setup MSRs //
+	// ---------- //
 	
 	if(!s_msr.Initialize()) {
 		printf("[SYSKRNL64] [ERROR]: CPU Doesn't support Model Specific Registers\r\n");
@@ -64,16 +75,32 @@ extern "C" uint64_t kernel_bootstrap(SystemTable* System)
 	}
 	SysKrnl64::msr = &s_msr;
 
-	// Setup Global Description Table
+	// ------------------------------ //
+	// Setup Global Description Table //
+	// ------------------------------ //
 
+	SysKrnl64::gdtEntries = s_gdtEntries;
 	s_gdt.Initialize(s_gdtEntries, sizeof(s_gdtEntries) / sizeof(s_gdtEntries[0]), GDT_64BIT_RING0_CODESEG, GDT_64BIT_RING0_DATASEG);
 
-	// Setup IDT & ISRs
+	// ---------------- //
+	// Setup IDT & ISRs //
+	// ---------------- //
 
 	s_idt.Initialize();	
 	s_isr.Initialize();
 
-	// Setup paging & MMD drivers
+	// ----------------------------- //
+	// Setup BSP Task Switch Segment //
+	// ----------------------------- //
+
+	SysKrnl64::GDT::TSSDesc* tssDesc = reinterpret_cast<SysKrnl64::GDT::TSSDesc*>(s_gdtEntries + 5);
+	*tssDesc = CONSTRUCT_TSS(reinterpret_cast<uintptr_t>(&s_tss), sizeof(SysKrnl64::GDT::TSS) - 1, SysKrnl64::GDT::TSS_PRESENT | SysKrnl64::GDT::TSS_TYPE_AVAILABLE);
+	memset(&s_tss, 0, sizeof(SysKrnl64::GDT::TSS));
+	SysKrnl64::GDT::LoadTSS(BSP_TASK_SWITCH_SEGMENT_OFFSET);
+
+	// -------------------------- //
+	// Setup paging & MMD drivers //
+	// -------------------------- //
 
 	s_paging.Initialize(System);
 	SysKrnl64::paging = &s_paging;
@@ -81,7 +108,9 @@ extern "C" uint64_t kernel_bootstrap(SystemTable* System)
 	// Log kernel load addresses and load size
 	printf("[SYSKRNL64] [INFO]: SysKrnl64 Physical load address: 0x%llX, SysKrnl64 Virtual load address: 0x%llX, SysKrnl64 load size: 0x%llX\r\n", System->memLayout.SysKrnl64PhysAddr, s_paging.GetKrnlStructVirt(System->memLayout.SysKrnl64PhysAddr), System->memLayout.SysKrnl64LoadSize);
 
-	// Setup memory allocators
+	// ----------------------- //
+	// Setup memory allocators //
+	// ----------------------- //
 
 	// Setup physical bitmap allocator
 
@@ -119,6 +148,10 @@ extern "C" uint64_t kernel_bootstrap(SystemTable* System)
 	}
 	SysKrnl64::heapAlloc = &s_heapAlloc;
 
+	// ------------------------------- //
+	// Setup a new 512KiB kernel stack //
+	// ------------------------------- //
+
 	// Reserve virtual memory for a new stack for the kernel
 
 	auto kernelStackAllocRes = s_virtAlloc.AllocateBlocks(BLOCK_COUNT(KERNEL_STACK_SIZE) + 1, SysKrnl64::MMD::VA_NODE_FLAG_PHYSICALLY_NOT_BACKED | SysKrnl64::MMD::VA_NODE_FLAG_USED);
@@ -142,9 +175,12 @@ extern "C" uint64_t kernel_bootstrap(SystemTable* System)
 	return reinterpret_cast<uintptr_t>(kernelStackAllocRes.value()) + KERNEL_STACK_SIZE + BLOCK_SIZE;
 }
 
-extern "C" void kernel_main(SystemTable* System)
+
+
+extern "C" void kernel_main(SystemTable* System, uintptr_t StackAddr)
 {
 	// Clear the screen to a blue color
+
 	size_t framebufferSize = System->fb.currentResolution.resHeight * System->fb.currentResolution.resPitch;
 	auto fbAllocRes = s_virtAlloc.AllocateBlocks(BLOCK_COUNT(framebufferSize), SysKrnl64::MMD::VA_NODE_FLAG_MMIO | SysKrnl64::MMD::VA_NODE_FLAG_NO_EXECUTE_ACCESS | SysKrnl64::MMD::VA_NODE_FLAG_USED);
 	if(!fbAllocRes)
@@ -164,7 +200,71 @@ extern "C" void kernel_main(SystemTable* System)
 
 	printf("[SYSKRNL64] [INFO]: GOP Framebuffer width: %llu, height: %llu, mapped at: 0x%llX\r\n", System->fb.currentResolution.resWidth, System->fb.currentResolution.resHeight, reinterpret_cast<uintptr_t>(framebuffer));
 
-	// Setup ACPI
+	// ----------------------------------------------------------------- //
+	// Setup BSP TSS and assign different stacks for some CPU exceptions //
+	// ----------------------------------------------------------------- //
+
+	s_tss.rsp0 = StackAddr;
+	
+	s_tss.ioMapBase = sizeof(SysKrnl64::GDT::TSS);
+
+	// IST1: Stack for the Double Fault(#DF) exception, vector 8, 16KiB stack
+
+	auto ist1StackAllocRes = s_virtAlloc.AllocateBlocks(BLOCK_COUNT(IST1_STACK_SIZE) + 1, SysKrnl64::MMD::VA_NODE_FLAG_PHYSICALLY_NOT_BACKED | SysKrnl64::MMD::VA_NODE_FLAG_USED);
+	if(!ist1StackAllocRes)
+	{
+		printf("[SYSKRNL64] [ERROR]: Failed to reserve virtual memory for the BSP IST1 stack for the Double Fault exception, error: %d\r\n", ist1StackAllocRes.error());
+		HaltSystem();
+	}
+
+	uint32_t ist1StackPhysAllocRes = s_physAlloc.AllocSparseBlocksToContiguousVirtualRange(BLOCK_COUNT(IST1_STACK_SIZE), reinterpret_cast<uintptr_t>(ist1StackAllocRes.value()) + BLOCK_SIZE, PTE_PRESENT | PTE_RW);
+	if(ist1StackPhysAllocRes != SysKrnl64::MMD::MMD_SUCCESS)
+	{
+		printf("[SYSKRNL64] [ERROR]: Failed to allocate physical memory for the BSP IST1 stack for the Double Fault exception, error: %d\r\n", ist1StackPhysAllocRes);
+		HaltSystem();
+	}
+
+	s_tss.ist1 = reinterpret_cast<uintptr_t>(ist1StackAllocRes.value()) + 5 * BLOCK_SIZE;
+
+	// IST2: Stack for the Non-Maskable Interrupt exception, vector 2, 16KiB stack
+
+	auto ist2StackAllocRes = s_virtAlloc.AllocateBlocks(BLOCK_COUNT(IST2_STACK_SIZE) + 1, SysKrnl64::MMD::VA_NODE_FLAG_PHYSICALLY_NOT_BACKED | SysKrnl64::MMD::VA_NODE_FLAG_USED);
+	if(!ist2StackAllocRes)
+	{
+		printf("[SYSKRNL64] [ERROR]: Failed to reserve virtual memory for the BSP IST2 stack for the Non-Maskable Interrupt exception, error: %d\r\n", ist2StackAllocRes.error());
+		HaltSystem();
+	}
+
+	uint32_t ist2StackPhysAllocRes = s_physAlloc.AllocSparseBlocksToContiguousVirtualRange(BLOCK_COUNT(IST2_STACK_SIZE), reinterpret_cast<uintptr_t>(ist2StackAllocRes.value()) + BLOCK_SIZE, PTE_PRESENT | PTE_RW);
+	if(ist2StackPhysAllocRes != SysKrnl64::MMD::MMD_SUCCESS)
+	{
+		printf("[SYSKRNL64] [ERROR]: Failed to allocate physical memory for the BSP IST2 stack for the Non-Maskable Interrupt exception, error: %d\r\n", ist2StackPhysAllocRes);
+		HaltSystem();
+	}
+
+	s_tss.ist2 = reinterpret_cast<uintptr_t>(ist2StackAllocRes.value()) + 5 * BLOCK_SIZE;
+
+	// IST3: Stack for the Machine Check exception, vector 18, 16KiB stack
+
+	auto ist3StackAllocRes = s_virtAlloc.AllocateBlocks(BLOCK_COUNT(IST3_STACK_SIZE) + 1, SysKrnl64::MMD::VA_NODE_FLAG_PHYSICALLY_NOT_BACKED | SysKrnl64::MMD::VA_NODE_FLAG_USED);
+	if(!ist3StackAllocRes)
+	{
+		printf("[SYSKRNL64] [ERROR]: Failed to reserve virtual memory for the BSP IST3 stack for the Machine Check exception, error: %d\r\n", ist3StackAllocRes.error());
+		HaltSystem();
+	}
+
+	uint32_t ist3StackPhysAllocRes = s_physAlloc.AllocSparseBlocksToContiguousVirtualRange(BLOCK_COUNT(IST3_STACK_SIZE), reinterpret_cast<uintptr_t>(ist3StackAllocRes.value()) + BLOCK_SIZE, PTE_PRESENT | PTE_RW);
+	if(ist3StackPhysAllocRes != SysKrnl64::MMD::MMD_SUCCESS)
+	{
+		printf("[SYSKRNL64] [ERROR]: Failed to allocate physical memory for the BSP IST3 stack for the Machine Check exception, error: %d\r\n", ist3StackPhysAllocRes);
+		HaltSystem();
+	}
+
+	s_tss.ist3 = reinterpret_cast<uintptr_t>(ist3StackAllocRes.value()) + 5 * BLOCK_SIZE;
+
+	// ---------- //
+	// Setup ACPI //
+	// ---------- //
 
 	SysKrnl64::ACPI::ACPI acpi;
 	if(!acpi.Initialize(System)) {
@@ -188,7 +288,9 @@ extern "C" void kernel_main(SystemTable* System)
 
 	printf("[SYSKRNL64] [INFO]: Located MADT and mapped at address 0x%llX\r\n", reinterpret_cast<uintptr_t>(madt));
 
-	// Setup APIC
+	// ---------- //
+	// Setup APIC //
+	// ---------- //
 
 	SysKrnl64::APIC::APIC apic;
 	if(!apic.Initialize(madt)) {
@@ -208,7 +310,9 @@ extern "C" void kernel_main(SystemTable* System)
 		HaltSystem();
 	}
 
-	// Setup PCIe
+	// ---------- //
+	// Setup PCIe //
+	// ---------- //
 
 	SysKrnl64::PCIe::PCIe pcie;
 	if(!pcie.Initialize(mcfg)) {
@@ -216,7 +320,92 @@ extern "C" void kernel_main(SystemTable* System)
 		HaltSystem();
 	}
 
-	// Setup AHCI
+	// ---------- //
+	// Setup HPET //
+	// ---------- //
+
+	SysKrnl64::ACPI::HPET* acpiHpet = acpi.GetHPET();
+	if(!acpiHpet)
+	{
+		printf("[SYSKRNL64] [ERROR]: Failed to get ACPI HPET\r\n");
+		HaltSystem();
+	}
+	
+	printf("[SYSKRNL64] [INFO]: Located HPET and mapped at address 0x%llX\r\n", reinterpret_cast<uintptr_t>(acpiHpet));
+
+	SysKrnl64::Timer::HPET_Timer hpet;
+	SysKrnl64::Timer::HPETDevice hpetDevice = {};	
+	hpetDevice = {};
+	hpetDevice.apic = &apic;
+	hpetDevice.hpet = acpiHpet;
+	if(!hpet.Initialize(&hpetDevice))
+	{
+		printf("[SYSKRNL64] [ERROR]: Failed to initialize HPET\r\n");
+		HaltSystem();
+	}
+
+	// Enable interrupts, as inits after this point might require to use driver interrupts
+	EnableInterrupts();
+
+	// ---------- //
+	// Setup LCPU //
+	// ---------- //
+
+	SysKrnl64::MP::LCPU lcpu;
+	if(!lcpu.Initialize(&apic))
+	{
+		printf("[SYSKRNL64] [ERROR]: Failed to initialize LCPU\r\n");
+		HaltSystem();
+	}
+
+	// ---------- //
+	// Setup iTSC //
+	// ---------- //
+
+	if(!SysKrnl64::Timer::iTSC::Initialize())
+	{
+		printf("[SYSKRNL64] [ERROR]: Failed to initialize iTSC\r\n");
+		HaltSystem();
+	}
+
+	// ----------- //
+	// Setup Timer //
+	// ----------- //
+
+	SysKrnl64::Timer::Timer timer;
+	SysKrnl64::Timer::TimerDesc timerDesc = {};
+	timerDesc.hpet = &hpet;
+	timerDesc.hpetDevice = &hpetDevice;
+	timerDesc.irq = &irq;
+	timerDesc.System = System;
+	if(!timer.Initialize(&timerDesc))
+	{
+		printf("[SYSKRNL64] [ERROR]: Failed to initialize Timer\r\n");
+		HaltSystem();
+	}
+
+	// ---------- //
+	// Setup Time //
+	// ---------- //
+
+	SysKrnl64::Timer::Time time;
+	if(!time.Initialize(&timer))
+	{
+		printf("[SYSKRNL64] [ERROR]: Failed to initialize time formatter\r\n");
+		HaltSystem();
+	}
+
+	// Log System Time
+
+	SysKrnl64::Timer::TimeDate timeDate = time.GetTimeDate();
+
+	printf("[SYSKRNL64] [INFO]: Current System Time(UTC): YYYY-MM-DD HH:MM:SS.NS %u-%u-%u %u:%u:%u.%llu\r\n", timeDate.date.year, timeDate.date.month, timeDate.date.day, timeDate.time.hour, timeDate.time.minute, timeDate.time.second, timeDate.time.nanosecond);
+
+	HaltSystem();
+
+	// ---------- //
+	// Setup AHCI //
+	// ---------- //
 
 	SysKrnl64::PCIe::DeviceInfo filters = {}, ahciPcieDevice;
 	filters.VendorID = filters.DeviceID = PCIE_ANY16;
@@ -239,64 +428,7 @@ extern "C" void kernel_main(SystemTable* System)
 		HaltSystem();
 	}
 
-	char AHCIDeviceModelNumber[41]; // Words 27-46
-	char AHCIDeviceSerialNumber[21]; // Words 10-19
-	char AHCIDeviceFirmwareRevision[9]; // Words 23-26
-
-	volatile uint16_t* bufferWords = reinterpret_cast<volatile uint16_t*>(ahciDevice.ports[0].IdentifyBuffer);
-
-	auto extractStr = [&](char* out, uint16_t startWord, uint16_t endWord) {
-		char* tmp = out;
-		for(uint16_t word = startWord; word <= endWord; word++)
-		{	
-			uint16_t pair = bufferWords[word];
-			*(tmp++) = (pair >> 8) & 0xFF;
-			*(tmp++) = pair & 0xFF;
-		}
-
-		uint16_t chars = (endWord - startWord) * 2;
-
-		for(int16_t i = chars - 1; i >= 0; i--)
-		{
-			if(out[i] == ' ') {
-				out[i] = '\0';
-				continue;
-			}
-
-			out[i + 1] = '\0';
-			break;
-		}
-	};
-
-	extractStr(AHCIDeviceModelNumber, 27, 46);
-	extractStr(AHCIDeviceSerialNumber, 10, 19);
-	extractStr(AHCIDeviceFirmwareRevision, 23, 26);
-
-	printf("[SYSKRNL64] [INFO]: Found a device at port 0 of AHCI Controller with model name %s, serial number %s and firmware revision %s\r\n", AHCIDeviceModelNumber, AHCIDeviceSerialNumber, AHCIDeviceFirmwareRevision);
-
-	// Test reading sectors 0 & 1 from DISK
-
-	SysKrnl64::AHCI::AHCIDiskDevice diskDevice = {};
-	diskDevice.controller = &ahciDevice;
-	diskDevice.devicePort = 0;
-
-	uint8_t sectorBuffer[2 * SECTOR_SIZE];
-	printf("sectorBuffer virt: 0x%llX, phys: 0x%llX, phys2: 0x%llX\r\n", reinterpret_cast<uintptr_t>(&sectorBuffer), s_paging.GetPhys(reinterpret_cast<uintptr_t>(&sectorBuffer)), s_paging.GetPhys(reinterpret_cast<uintptr_t>(&sectorBuffer) + SECTOR_SIZE));
-
-	if(!ahci.ReadSectors(&diskDevice, 0, 2, &sectorBuffer)) {
-		printf("[SYSKRNL64] [ERROR]: Failed to read from DISK\r\n");
-		HaltSystem();
-	}
-
-	printf("sectorBuffer virt: 0x%llX, phys: 0x%llX, phys2: 0x%llX\r\n", reinterpret_cast<uintptr_t>(&sectorBuffer), s_paging.GetPhys(reinterpret_cast<uintptr_t>(&sectorBuffer)), s_paging.GetPhys(reinterpret_cast<uintptr_t>(&sectorBuffer) + SECTOR_SIZE));
-
-	for(size_t i = 0; i < sizeof(sectorBuffer); i++) printf("<0x%X> ", sectorBuffer[i]);
-	
-	puts("\r\n");
-
 	EnableInterrupts();
-
-	while(1);
 
 	HaltSystem();
 }

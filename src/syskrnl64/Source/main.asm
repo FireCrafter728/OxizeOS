@@ -1,3 +1,5 @@
+; SPDX-License-Identifier: GPL-3.0-or-later
+
 [bits 64]
 
 section .text
@@ -55,6 +57,7 @@ _start:
     mov rbp, rsp
 
     mov rdi, [rel SysTablePtr]
+    mov rsi, rsp
 
     ; Call the kernel main function
     call kernel_main

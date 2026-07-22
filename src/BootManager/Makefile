@@ -1,5 +1,8 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# OxizeOS build system
+
 MINGW_LINKFLAGS += -no-pie -T linker.ld -Wl,--subsystem,10 -Wl,--image-base,0 -e efi_main -Wl,--Map=$(OUTPUT)/BootMgr.map
-MINGW_CXXFLAGS += -fno-PIC -fno-exceptions -fno-rtti -fno-stack-protector -fno-asynchronous-unwind-tables -mno-red-zone -fno-use-cxa-atexit -mno-avx -mno-avx2 -mno-avx512f -mno-avx512bw -mno-avx512dq -mno-avx512vl -mno-fma -msse2 -I Include/ -I Include/std/ -include Global.hpp -I $(LIB)/UEFI/MdePkg/Include -fshort-wchar -I $(LIB)/OxizeOS/
+MINGW_CXXFLAGS += -fno-PIC -fno-exceptions -fno-rtti -fno-stack-protector -fno-asynchronous-unwind-tables -mno-red-zone -fno-use-cxa-atexit -mno-avx -mno-avx2 -mno-avx512f -mno-avx512bw -mno-avx512dq -mno-avx512vl -mno-fma -msse2 -I Include/ -I Include/std/ -include Global.hpp -I $(LIB)/EDK2/MdePkg/Include -fshort-wchar -I $(LIB)/OxizeOS/
 X64_TARGET_ASMFLAGS += -f win64
 
 SOURCES_CPP = $(shell find Source -name '*.cpp')
