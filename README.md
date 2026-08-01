@@ -45,7 +45,7 @@ For this you need:
 
 - To make sure the toolchain is installed correctly
 - Working base `GCC` & `Binutils` with **C++23** support (I recommend at least `GCC 14`, preferrably the latest version)
-- tools `gdisk`, `dd`, `nasm`, `mingw-w64`
+- tools `dosfstools`, `nasm`, `mingw-w64`
 - `python3` installed for scripts
 
 ## Running the OS
@@ -73,3 +73,5 @@ I recommend using it on a **VM**, like **qemu**, **Virtual Box** or **VMware**.
 **PCI** is not supported
 - This OS might have a **lack of drivers**, since they mostly are **community-developed**,
 not by the manufacturers.
+- Some build tools are replaced with our own for extra performance, however they are
+not tested extensively

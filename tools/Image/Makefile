@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # OxizeOS build system
 
-CXXFLAGS += -I Include -include Global.hpp
+CXXFLAGS += -I Include -include Global.hpp -O2
 
 SOURCES_CPP=$(shell find Source -name '*.cpp')
 OBJECTS_CPP=$(patsubst Source/%.cpp, $(OBJ)/tools/image/%.obj, $(SOURCES_CPP))

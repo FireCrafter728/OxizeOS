@@ -29,7 +29,7 @@ bool GPT::CreateGPT(FILE* image)
 
     gpt->ProtectiveMBR.bootSig = 0xAA55;
     gpt->ProtectiveMBR.partitions[0].attribs = 0;
-    gpt->ProtectiveMBR.partitions[0].partStartCHS[2] = 0x02;
+    gpt->ProtectiveMBR.partitions[0].partStartCHS[1] = 0x02;
     gpt->ProtectiveMBR.partitions[0].partType = 0xEE;
     memset(gpt->ProtectiveMBR.partitions[0].lastSectorCHS, 0xFF, 3);
     gpt->ProtectiveMBR.partitions[0].partStartLBA = 1;

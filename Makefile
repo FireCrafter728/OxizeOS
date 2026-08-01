@@ -3,7 +3,7 @@
 
 include scripts/config.mk
 
-.PHONY: all bootmgr syskrnl64 tools tools-fat tools-image tools-gpt toolchain image dir clean
+.PHONY: all bootmgr syskrnl64 tools tools-fat32 tools-image tools-gpt toolchain image dir clean
 
 all: dir bootmgr syskrnl64 tools image
 
@@ -15,13 +15,13 @@ bootmgr:
 syskrnl64:
 	$(MAKE) -C $(SRC)/syskrnl64
 
-tools: tools-fat tools-image tools-gpt
+tools: tools-fat32 tools-image tools-gpt
 
 tools-image:
 	$(MAKE) -C tools/Image
 
-tools-fat:
-	$(MAKE) -C tools/fat
+tools-fat32:
+	$(MAKE) -C tools/fat32
 
 tools-gpt:
 	$(MAKE) -C tools/gpt
@@ -32,7 +32,7 @@ image: bootmgr syskrnl64 tools
 dir:
 	mkdir -p $(OUTPUT)
 	mkdir -p $(OBJ)
-	mkdir -p $(OBJ)/tools/fat
+	mkdir -p $(OBJ)/tools/fat32
 	mkdir -p $(OBJ)/tools/image
 	mkdir -p $(OBJ)/tools/gpt
 

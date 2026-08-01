@@ -26,7 +26,7 @@ int main(int argc, char** argv)
     if(cmd == "MKGPT") {
         return gpt.CreateGPT(Image) ? 0 : 4;
     } else if(cmd == "MKPART") {
-        GPT_PartitionEntry partEntry;
+        GPT_PartitionEntry partEntry = {};
 
         // Flag syntax: <Name> <16-byte hex part type ID> <start LBA> <end LBA> <part Index>
         if(argc < 8) {

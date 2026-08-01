@@ -53,15 +53,12 @@
         {
             "name": "FAT32",
             "includePath": [
-                "${workspaceFolder}/tools/fat/"
+                "${workspaceFolder}/tools/fat32/Include/"
             ],
             "compilerPath": "/usr/bin/gcc",
             "cStandard": "c23",
             "cppStandard": "c++23",
-            "intelliSenseMode": "linux-gcc-x64",
-            "forcedInclude": [
-                "${workspaceFolder}/tools/fat/global.hpp"
-            ]
+            "intelliSenseMode": "linux-gcc-x64"
         },
         {
             "name": "BootMgr",

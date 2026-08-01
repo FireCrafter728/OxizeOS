@@ -110,3 +110,13 @@ updated it to use the new **GPT** formatting tool instead of gdisk
 - Fixed a bug in the SysKrnl64 vector class that could cause double-free when using copy ctors/assignments
 - Updated the `run` script to run with linux **KVM** and host CPU emulation for more features and faster emulation
 - Noticed the `FAT32` tool is buggier than expected, and it's design is starting to cause problems, next update should handle those problems
+
+## 2026-08-01 1.0.1.0013 FAT32 Tool Rewrite
+
+- Removed the old FAT32 tool and implemented a new one
+- This new tool has a lot less operations, but they're enough for the image building process, and other operations the previous tool had were unused and taking up program space
+- Made the partition manager in the new tool support both MBR and GPT, support MBR logical partitions, do extensive verifications and a minimal recovery interface
+- Changed the tool input argument structure
+- Added better support for wide strings, supporting wchar_t being both 2 and 4 bytes long
+- Replaced the mkfs operation with mkfs.fat, as it's a lot more trusted
+- Added FAT12 and FAT16 support to the FAT Driver

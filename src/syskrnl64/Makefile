@@ -1,9 +1,9 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # OxizeOS build system
 
-X64_TARGET_LINKFLAGS += -T linker.ld
-X64_TARGET_CXXFLAGS += -fno-exceptions -fno-rtti -fshort-wchar -mno-red-zone -fno-stack-protector -Wno-address-of-packed-member -fno-threadsafe-statics -I Include/ -I Include/std/ -include Global.hpp -I $(LIB)/OxizeOS/ -g -O0
-X64_TARGET_ASMFLAGS += -f elf64 -g -F dwarf
+X64_TARGET_LINKFLAGS += -T linker.ld -Wl,-Map=$(OUTPUT)/syskrnl64.map
+X64_TARGET_CXXFLAGS += -fno-exceptions -fno-rtti -fshort-wchar -mno-red-zone -fno-stack-protector -Wno-address-of-packed-member -fno-threadsafe-statics -I Include/ -I Include/std/ -include Global.hpp -I $(LIB)/OxizeOS/
+X64_TARGET_ASMFLAGS += -f elf64
 
 SOURCES_CPP = $(shell find Source -name '*.cpp')
 SOURCES_ASM = $(shell find Source -name '*.asm')
