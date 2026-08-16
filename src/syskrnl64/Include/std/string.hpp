@@ -2,14 +2,8 @@
 
 #pragma once
 
-// ||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||| // 
-// |-----------------------------------------------------------------------------| //
-// | Minimal freestanding LIBSTDC Implementation for the OxizeOS kernel          | //
-// | STRING: various memory and string modification and transformation functions | //
-// |-----------------------------------------------------------------------------| //
-// ||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||| //
-
-#include <stdint.hpp>
+#include <stdint.h>
+#include <stddef.h>
 
 #ifndef ASMCALL
 #define ASMCALL extern "C"
@@ -28,3 +22,12 @@ void* memcpy(void* dst, const void* src, size_t num);
 // --------------------------- //
 
 size_t strlen(const char* str);
+int strcmp(const char* str1, const char* str2);
+char* strcpy(char* dst, const char* src);
+char* strncpy(char* dst, const char* src, size_t n);
+
+// -------------------------------- //
+// WIDE CHARACTER STRING OPERATIONS //
+// -------------------------------- //
+
+size_t wcslen(const wchar_t* wstr);

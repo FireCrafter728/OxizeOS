@@ -2,27 +2,21 @@
 
 #pragma once
 
-// |||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||| // 
-// |----------------------------------------------------------------------| //
-// | Minimal freestanding LIBSTDC++ Implementation for the OxizeOS kernel | //
-// | RUNTIME: Various runtime operators and pre-launch functions          | //
-// |----------------------------------------------------------------------| //
-// |||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||| //
-
-#include <stdint.hpp>
+#include <stdint.h>
+#include <stddef.h>
 
 // ------------ //
 // OPERATOR NEW //
 // ------------ //
 
-inline void* operator new(unsigned long int, void* ptr) noexcept
+inline void* operator new(size_t, void* ptr) noexcept
 {
-    return ptr;
+	return ptr;
 }
 
-inline void* operator new[](unsigned long int, void* ptr) noexcept
+inline void* operator new[](size_t, void* ptr) noexcept
 {
-    return ptr;
+	return ptr;
 }
 
 // --------------- //

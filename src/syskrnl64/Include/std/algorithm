@@ -2,23 +2,16 @@
 
 #pragma once
 
-// |||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||| // 
-// |----------------------------------------------------------------------| //
-// | Minimal freestanding LIBSTDC++ Implementation for the OxizeOS kernel | //
-// | ALGORITHM: various functions for algorithmic uses                    | //
-// |----------------------------------------------------------------------| //
-// |||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||| //
-
 namespace std
 {
 
-    // --------- //
-    // MIN / MAX //
-    // --------- //
+	// --------- //
+	// MIN / MAX //
+	// --------- //
 
-    template <typename T>
-    constexpr T min(T a, T b) { return a < b ? a : b; };
+	template <typename T>
+	constexpr T min(T a, T b) { return a < b ? a : b; };
 
-    template <typename T>
-    constexpr T max(T a, T b) { return a > b ? a : b; };
+	template <typename T>
+	constexpr T max(T a, T b) { return a > b ? a : b; };
 }

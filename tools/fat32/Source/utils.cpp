@@ -7,89 +7,89 @@
 
 void PrintSectorSeparator(size_t sector)
 {
-    char buffer[76]; // 75 chars / hex line + null character
-    
-    for(size_t i = 0; i < 75; i++)
-        buffer[i] = '-'; // Pad with dashes
+	char buffer[76]; // 75 chars / hex line + null character
+	
+	for(size_t i = 0; i < 75; i++)
+		buffer[i] = '-'; // Pad with dashes
 
-    buffer[75] = '\0';
+	buffer[75] = '\0';
 
-    char text[32];
-    sprintf(text, " Sector %lu ", sector);
+	char text[32];
+	sprintf(text, " Sector %lu ", sector);
 
-    size_t textLength = strlen(text);
-    size_t start = (75 - textLength) / 2;
+	size_t textLength = strlen(text);
+	size_t start = (75 - textLength) / 2;
 
-    for(size_t i = 0; i < textLength; i++)
-        buffer[start + i] = text[i];
+	for(size_t i = 0; i < textLength; i++)
+		buffer[start + i] = text[i];
 
-    puts(buffer);
+	puts(buffer);
 }
 
 void DumpFormattedHex(void* buffer, size_t countAligned, size_t displayOffsetAligned)
 {
-    uint8_t* u8Buffer = reinterpret_cast<uint8_t*>(buffer);
+	uint8_t* u8Buffer = reinterpret_cast<uint8_t*>(buffer);
 
-    static const char HexPrintable[256] =
-    {
-        '.', '.', '.', '.', '.', '.', '.', '.', '.', '.', '.', '.', '.', '.', '.', '.',
-        '.', '.', '.', '.', '.', '.', '.', '.', '.', '.', '.', '.', '.', '.', '.', '.',
-        ' ', '!', '"', '#', '$', '%', '&', '\'', '(', ')', '*', '+', ',', '-', '.', '/',
-        '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', ':', ';', '<', '=', '>', '?',
-        '@', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O',
-        'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', '[', '\\', ']', '^', '_',
-        '`', 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o',
-        'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z', '{', '|', '}', '~', '.',
-        '.', '.', '.', '.', '.', '.', '.', '.', '.', '.', '.', '.', '.', '.', '.', '.',
-        '.', '.', '.', '.', '.', '.', '.', '.', '.', '.', '.', '.', '.', '.', '.', '.',
-        '.', '.', '.', '.', '.', '.', '.', '.', '.', '.', '.', '.', '.', '.', '.', '.',
-        '.', '.', '.', '.', '.', '.', '.', '.', '.', '.', '.', '.', '.', '.', '.', '.',
-        '.', '.', '.', '.', '.', '.', '.', '.', '.', '.', '.', '.', '.', '.', '.', '.',
-        '.', '.', '.', '.', '.', '.', '.', '.', '.', '.', '.', '.', '.', '.', '.', '.',
-        '.', '.', '.', '.', '.', '.', '.', '.', '.', '.', '.', '.', '.', '.', '.', '.',
-        '.', '.', '.', '.', '.', '.', '.', '.', '.', '.', '.', '.', '.', '.', '.', '.'
-    };
+	static const char HexPrintable[256] =
+	{
+		'.', '.', '.', '.', '.', '.', '.', '.', '.', '.', '.', '.', '.', '.', '.', '.',
+		'.', '.', '.', '.', '.', '.', '.', '.', '.', '.', '.', '.', '.', '.', '.', '.',
+		' ', '!', '"', '#', '$', '%', '&', '\'', '(', ')', '*', '+', ',', '-', '.', '/',
+		'0', '1', '2', '3', '4', '5', '6', '7', '8', '9', ':', ';', '<', '=', '>', '?',
+		'@', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O',
+		'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', '[', '\\', ']', '^', '_',
+		'`', 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o',
+		'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z', '{', '|', '}', '~', '.',
+		'.', '.', '.', '.', '.', '.', '.', '.', '.', '.', '.', '.', '.', '.', '.', '.',
+		'.', '.', '.', '.', '.', '.', '.', '.', '.', '.', '.', '.', '.', '.', '.', '.',
+		'.', '.', '.', '.', '.', '.', '.', '.', '.', '.', '.', '.', '.', '.', '.', '.',
+		'.', '.', '.', '.', '.', '.', '.', '.', '.', '.', '.', '.', '.', '.', '.', '.',
+		'.', '.', '.', '.', '.', '.', '.', '.', '.', '.', '.', '.', '.', '.', '.', '.',
+		'.', '.', '.', '.', '.', '.', '.', '.', '.', '.', '.', '.', '.', '.', '.', '.',
+		'.', '.', '.', '.', '.', '.', '.', '.', '.', '.', '.', '.', '.', '.', '.', '.',
+		'.', '.', '.', '.', '.', '.', '.', '.', '.', '.', '.', '.', '.', '.', '.', '.'
+	};
 
-    printf("00000000: 00 01 02 03 04 05 06 07 08 09 0A 0B 0C 0D 0E 0F  ASCII\r\n");
-    size_t doffLine = displayOffsetAligned / 16;
-    for(size_t i = 0; i < countAligned / 16; i++) 
-    {
-        if((i * 16 + doffLine * 16) % SECTOR_SIZE == 0) PrintSectorSeparator((i * 16 + doffLine * 16) / SECTOR_SIZE);
-        printf("%08lX: ", i * 16 + displayOffsetAligned);
-        for(size_t j = 0; j < 16; j++) printf("%02X ", u8Buffer[i * 16 + j]);
-        printf(" ");
-        for(size_t j = 0; j < 16; j++) printf("%c", HexPrintable[u8Buffer[i * 16 + j]]);
-        puts("");
-    }
-    puts("");
+	printf("00000000: 00 01 02 03 04 05 06 07 08 09 0A 0B 0C 0D 0E 0F  ASCII\n");
+	size_t doffLine = displayOffsetAligned / 16;
+	for(size_t i = 0; i < countAligned / 16; i++) 
+	{
+		if((i * 16 + doffLine * 16) % SECTOR_SIZE == 0) PrintSectorSeparator((i * 16 + doffLine * 16) / SECTOR_SIZE);
+		printf("%08lX: ", i * 16 + displayOffsetAligned);
+		for(size_t j = 0; j < 16; j++) printf("%02X ", u8Buffer[i * 16 + j]);
+		printf(" ");
+		for(size_t j = 0; j < 16; j++) printf("%c", HexPrintable[u8Buffer[i * 16 + j]]);
+		puts("");
+	}
+	puts("");
 }
 
 uint32_t ComputeCRC32(const void* data, size_t length)
 {
-    static uint32_t table[256];
-    static bool initialized = false;
+	static uint32_t table[256];
+	static bool initialized = false;
 
-    if(!initialized)
-    {
-        for(uint32_t i = 0; i < 256; i++)
-        {
-            uint32_t crc = i;
-            for(int j = 0; j < 8; j++)
-                crc = (crc >> 1) ^ (0xEDB88320u & (-(int)(crc & 1)));
-            table[i] = crc;
-        }
-        initialized = true;
-    }
+	if(!initialized)
+	{
+		for(uint32_t i = 0; i < 256; i++)
+		{
+			uint32_t crc = i;
+			for(int j = 0; j < 8; j++)
+				crc = (crc >> 1) ^ (0xEDB88320u & (-(int)(crc & 1)));
+			table[i] = crc;
+		}
+		initialized = true;
+	}
 
-    uint32_t crc = 0xFFFFFFFFu;
-    const uint8_t* buf = static_cast<const uint8_t*>(data);
+	uint32_t crc = 0xFFFFFFFFu;
+	const uint8_t* buf = static_cast<const uint8_t*>(data);
 
-    for(size_t i = 0; i < length; i++)
-    {
-        crc = table[(crc ^ buf[i]) & 0xFF] ^ (crc >> 8);
-    }
+	for(size_t i = 0; i < length; i++)
+	{
+		crc = table[(crc ^ buf[i]) & 0xFF] ^ (crc >> 8);
+	}
 
-    return crc ^ 0xFFFFFFFFu;
+	return crc ^ 0xFFFFFFFFu;
 }
 
 codepoint_t utf8ToCodepoint(const char* str, size_t* bytesRead)
@@ -300,10 +300,10 @@ std::string wideStringToUtf8String(const std::wstring_view wstr)
 
 std::string FormatNumber(uint64_t value)
 {
-    std::string result = std::to_string(value);
+	std::string result = std::to_string(value);
 
-    for(int64_t pos = static_cast<int64_t>(result.length()) - 3; pos > 0; pos -= 3)
-        result.insert(static_cast<size_t>(pos), ",");
+	for(int64_t pos = static_cast<int64_t>(result.length()) - 3; pos > 0; pos -= 3)
+		result.insert(static_cast<size_t>(pos), ",");
 
-    return result;
+	return result;
 }

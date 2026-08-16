@@ -1,6 +1,8 @@
 # OxizeOS Changelog
 
 ## `<Date> <Version>: <Title>`
+- Version is in format "`<Edition>`.`<Major>`.`<Minor>`.`<Build>`
+- Build number is forever incremental with each update, never resets
 
 ## 2026-01-07 1.0.0.0001: Initial Update
 
@@ -120,3 +122,26 @@ updated it to use the new **GPT** formatting tool instead of gdisk
 - Added better support for wide strings, supporting wchar_t being both 2 and 4 bytes long
 - Replaced the mkfs operation with mkfs.fat, as it's a lot more trusted
 - Added FAT12 and FAT16 support to the FAT Driver
+
+## 2026-08-16 1.0.1.0014 Switch from ELF to PE in the kernel
+
+- Changed the kernel executable format from **ELF** to **PE**
+- The change was made because PE offers features such as:
+- - Built-in resource script compilers and resource sections, which ELF doesn't provide out of the box(would need to implement custom tools)
+- - Removes the cross-platform gcc & binutils toolchain dependency, as for PE the host MinGW is fully usable
+- - And some other reasons, like the way PE handles DLLs or relocations
+
+- Removed forced `Global.hpp` include from both the boot manager and the kernel, mainly because dependency tracking with those forced includes are nearly useless
+- Added dependency tracking to the boot manager and the kernel, so if a header is changed, all source files that include that header would be recompiled
+- Updated most kernel assembly source files to place the code in a special `.code` section to separate assembly and C++ code and also to use the Microsoft x86-64 ABI
+- Added a `syskrnl64.rc` resource script at the root of the **SysKrnl64** subproject folder for managing PE Resources used by the kernel
+- Made the kernel assembly entry point put the code in a special `.entry` section to separate the entry point code from regular code
+- Added dependency tracking to the kernel and the bootloader so when a header file is changed, all source files that include this header would be recompiled
+- Did some refractoring on the kernel linker script and makefile
+- Changed the `isr.asm` in the kernel to use a much more safer stack frame construction and dispatching mechanizm
+- Added a `readhex` operation to the FAT32 Driver debug cmd operation that reads files and returns formatted hex dumps of their data
+- Added a `std::string` class for easier string operations
+- Added a `debug` flag to the `./run qemu` operation to launch qemu paused, with a port for GDB to attach to, and also CPU Exception logging to stdio with kvm disabled
+- Refractored the kernel file layout, making it more architecture aware, and separating drivers from APIs
+- Changed the namespace structure from SysKrnl64::`<Driver name>` to krnl::`<Driver name>`_`<object name>`
+- Some other refractoring

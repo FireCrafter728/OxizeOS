@@ -7,21 +7,21 @@
 
 enum class TokenTypes
 {
-    String,
-    Number,
-    Separator
+	String,
+	Number,
+	Separator
 };
 
 struct Token
 {
-    std::string value;
-    TokenTypes type;
+	std::string value;
+	TokenTypes type;
 };
 
 class Tokenizer
 {
 public:
-    bool Tokenize(const std::string& line, std::vector<Token>& out);
+	bool Tokenize(const std::string& line, std::vector<Token>& out);
 private:
-    bool IsNumber(const std::string& str);
+	bool IsNumber(const std::string& str);
 };

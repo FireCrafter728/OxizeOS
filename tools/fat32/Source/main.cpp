@@ -546,6 +546,7 @@ int main(int argc, char** argv)
 			//
 			// help: prints info about this builtin command prompt
 			// dump: flags: <sector>, <count>: dumps the disk contents at the sector inside the partition for the amount of sectors specified
+			// readhex: flags: <path>: prints a file contents in a hex dump
 			// exit: exits the program
 			// clear: clears the screen
 			printf("BUILTIN-DEBUG-CMD>");
@@ -606,6 +607,49 @@ int main(int argc, char** argv)
 				}
 
 				DumpFormattedHex(buffer, count * SECTOR_SIZE, (partitionStartLba + sector) * SECTOR_SIZE);
+				continue;
+			}
+
+			if(strcasecmp(token, "readhex") == 0)
+			{
+				char* pathStr = strtok(nullptr, " ");
+				std::wstring wFilePath = utf8StringToWideString(pathStr);
+			
+				// Open the file
+				auto openRes = fat.OpenFile(wFilePath);
+				if(!openRes)
+				{
+					fprintf(stderr, "[FAT32] [ERROR]: Failed to open file %s for reading\n", pathStr);
+					return openRes.error();
+				}
+				FAT32::FAT::FAT_File file = openRes.value();
+			
+				auto getSizeRes = fat.GetFileSize(&file);
+				if(!getSizeRes)
+				{
+					fprintf(stderr, "[FAT32] [ERROR]: Failed to get file size in file %s for the read operation\n", pathStr);
+					return getSizeRes.error();
+				}
+				size_t bufferSize = (getSizeRes.value() + 15) & ~15ULL;
+			
+				// Allocate the buffer
+				uint8_t* fileBuffer = reinterpret_cast<uint8_t*>(malloc(bufferSize));
+				if(bufferSize && !fileBuffer)
+				{
+					fprintf(stderr, "[FAT32] [ERROR]: Failed to allocate a buffer to read the file data into\n");
+					return FAT32_MEMORY_ALLOCATION_FAILED;
+				}
+			
+				// Read the file into the buffer
+				auto readRes = fat.ReadFile(&file, bufferSize, fileBuffer);
+				if(!readRes)
+				{
+					fprintf(stderr, "[FAT32] [ERROR]: Failed to read the file %s\n", pathStr);
+					return readRes.error();
+				}
+
+				printf("bufferSize: 0x%lX\n", getSizeRes.value());
+				DumpFormattedHex(fileBuffer, bufferSize, 0);
 				continue;
 			}
 

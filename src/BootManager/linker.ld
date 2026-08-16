@@ -6,10 +6,12 @@ ENTRY(efi_main)
 SECTIONS
 {
 	. = 0x1000;
+	
 	.text : { *(.text) __init_array_start = .; KEEP(*(.init_array*)) __init_array_end = .; }
 	.data : { *(.data) }
 	.rodata : { *(.rodata) }
 	.bss : { *(.bss) *(COMMON) }
+	.reloc : { *(.reloc) }
 
 	/DISCARD/ : {
 		*(.eh_frame*)

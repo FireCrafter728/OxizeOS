@@ -1,20 +1,18 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-//
-// OxizeOS Operating System for the x86 amd64(x86_64) architecture
-// Copyright (C) 2025-2026 FireCrafter728
-//
-// This program is free software: you can redistribute it and/or modify
-// it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-//
-// This program is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU General Public License for more details.
-//
-// You should have received a copy of the GNU General Public License
-// along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
+#include <defs.hpp>
+
+#include <SysTableBuilder.hpp>
+#include <FileSystem.hpp>
+#include <PELoader.hpp>
+
+#include <io.hpp>
+#include <crt.hpp>
+#include <stdio.hpp>
+#include <string.hpp>
+
+#include <Protocol/GraphicsOutput.h>
+
 
 EFI_SYSTEM_TABLE* BootMgr::gSystem = nullptr;
 
@@ -50,20 +48,29 @@ extern "C" EFI_STATUS EFIAPI efi_main(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE* 
 		HaltSystem();
 	}
 
-	BootMgr::ELF::ELF elf;
-	BootMgr::ELF::ELF_Handle elfHandle;
-	elf.CreateHandle(&elfHandle, SysKrnl64, &fs);
+	BootMgr::PELoader::PE_Loader peLoader;
+	BootMgr::PELoader::PE_ImageHandle kernelHandle;
+	if(!peLoader.OpenImage(SysKrnl64, &fs, &kernelHandle))
+	{
+		printf("[BOOTMGR] [ERROR]: Failed to open kernel PE Image\r\n");
+		HaltSystem();
+	}
 
-	SystemTable* sysTable = sysTableBuilder.BuildSystemTable(elfHandle.LoadPages);
+	SystemTable* sysTable = sysTableBuilder.BuildSystemTable((peLoader.GetImageLoadSize(&kernelHandle) + 0xFFF) / 0x1000);
 	if(!sysTable) {
-		printf("[OXIZEOS-BOOTMGR] [ERROR]: Failed to build a System Table for the kernel: %llu\r\n", sysTableBuilder.GetLastStatus());
+		printf("[BOOTMGR] [ERROR]: Failed to build a System Table for the kernel, error code: 0x%llX\r\n", sysTableBuilder.GetLastStatus());
 		HaltSystem();
 	}
 	printf("SysKrnl64 phys addr: 0x%llX, SysKrnl64 virt addr: 0x%llX\r\n", sysTable->memLayout.SysKrnl64PhysAddr, sysTable->memLayout.SysKrnl64PhysAddr - sysTableBuilder.getRegionStartAddr() + BootMgr::MapAddr);
-	elf.SetLoadAddr(&elfHandle, sysTable->memLayout.SysKrnl64PhysAddr);
-	elf.SetVirtLoadAddr(&elfHandle, sysTable->memLayout.SysKrnl64PhysAddr - sysTableBuilder.getRegionStartAddr() + BootMgr::MapAddr);
+	peLoader.SetImageLoadAddr(&kernelHandle, sysTable->memLayout.SysKrnl64PhysAddr, sysTable->memLayout.SysKrnl64PhysAddr - sysTableBuilder.getRegionStartAddr() + BootMgr::MapAddr);
+	sysTable->ResourceSectionVirtAddr = peLoader.GetImageResSectionOffset(&kernelHandle);
+	sysTable->ResourceSectionRootDirectoryAddress = peLoader.GetImageResSectionRootDirOffset(&kernelHandle);
 
-	elf.LoadImage(&elfHandle);
+	if(!peLoader.LoadImageIntoMemory(&kernelHandle))
+	{
+		printf("[BOOTMGR] [ERROR]: Failed to load SysKrnl64 into memory\r\n");
+		HaltSystem();
+	}
 
 	// Set the preferred GOP Framebuffer mode
 
@@ -107,7 +114,7 @@ extern "C" EFI_STATUS EFIAPI efi_main(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE* 
 
 	typedef void (*KrnlExec)(uintptr_t Entry, SystemTable* systemTable, uint64_t CR3, uintptr_t StackAddr);
 	KrnlExec krnl = (KrnlExec)krnlExecLoadAddr;
-	uintptr_t SysKrnl64Virt = (elfHandle.LoadAddr + elfHandle.header.EntryOffset - elfHandle.extraOffset) - sysTableBuilder.getRegionStartAddr() + BootMgr::MapAddr;
+	uintptr_t SysKrnl64Virt = peLoader.GetImageAbsoluteEntryPoint(&kernelHandle);
 
 	krnl(SysKrnl64Virt, reinterpret_cast<SystemTable*>(reinterpret_cast<uintptr_t>(sysTable) - sysTableBuilder.getRegionStartAddr() + BootMgr::MapAddr), BootMgr::MAKE_CR3(sysTableBuilder.getPageTablesPhysAddr(), 0), sysTable->memLayout.StackAddr + sysTable->memLayout.StackPageCount * 0x1000);
 	

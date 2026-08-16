@@ -1,91 +1,85 @@
 {
-    "configurations": [
-        {
-            "name": "SysKRNL64",
-            "includePath": [
-                "${workspaceFolder}/src/syskrnl64/Include/",
-                "${workspaceFolder}/src/syskrnl64/Include/std",
-                "${workspaceFolder}/lib/OxizeOS/"
-            ],
-            "compilerPath": "${workspaceFolder}/toolchain/x86_64-elf/bin/x86_64-elf-gcc",
-            "cStandard": "c23",
-            "cppStandard": "c++23",
-            "intelliSenseMode": "linux-gcc-x64",
-            "compilerArgs": [
-                " -nostdinc", " -nostdinc++"
-            ],
-            "forcedInclude": [
-                "${workspaceFolder}/src/syskrnl64/Include/Global.hpp"
-            ]
-        },
-        {
-            "name": "GPT",
-            "includePath": [
-                "${workspaceFolder}/tools/gpt/"
-            ],
-            "compilerPath": "/usr/bin/gcc",
-            "cStandard": "c23",
-            "cppStandard": "c++23",
-            "intelliSenseMode": "linux-gcc-x64",
-            "forcedInclude": [
-                "${workspaceFolder}/tools/gpt/global.hpp"
-            ],
-            "compilerArgs": [
-                "-fshort-wchar"
-            ],
-            "defines": [
-                "__SIZEOF_WCHAR_T__=2"
-            ]
-        },
-        {
-            "name": "Image",
-            "includePath": [
-                "${workspaceFolder}/tools/Image/Include/"
-            ],
-            "compilerPath": "/usr/bin/gcc",
-            "cStandard": "c23",
-            "cppStandard": "c++23",
-            "intelliSenseMode": "linux-gcc-x64",
-            "forcedInclude": [
-                "${workspaceFolder}/tools/Image/Include/Global.hpp"
-            ]
-        },
-        {
-            "name": "FAT32",
-            "includePath": [
-                "${workspaceFolder}/tools/fat32/Include/"
-            ],
-            "compilerPath": "/usr/bin/gcc",
-            "cStandard": "c23",
-            "cppStandard": "c++23",
-            "intelliSenseMode": "linux-gcc-x64"
-        },
-        {
-            "name": "BootMgr",
-            "includePath": [
-                "${workspaceFolder}/src/BootManager/Include",
-                "${workspaceFolder}/src/BootManager/Include/std",
-                "${workspaceFolder}/lib/OxizeOS/",
-                "${workspaceFolder}/lib/EDK2/MdePkg/Include/"
-            ],
-            "compilerPath": "${workspaceFolder}/toolchain/x86_64-elf/bin/x86_64-elf-gcc",
-            "cStandard": "c23",
-            "cppStandard": "c++23",
-            "intelliSenseMode": "linux-gcc-x64",
-            "forcedInclude": [
-                "${workspaceFolder}/src/BootManager/Include/Global.hpp"
-            ]
-        },
-        {
-            "name": "linux",
-            "includePath": [
-                "${workspaceFolder}/**"
-            ],
-            "compilerPath": "/usr/bin/gcc",
-            "cStandard": "c23",
-            "cppStandard": "c++23",
-            "intelliSenseMode": "linux-gcc-x64"
-        }
-    ],
-    "version": 4
+	"configurations": [
+		{
+			"name": "SysKRNL64",
+			"includePath": [
+				"${workspaceFolder}/src/syskrnl64/Include/",
+				"${workspaceFolder}/src/syskrnl64/Include/std",
+				"${workspaceFolder}/lib/OxizeOS/"
+			],
+			"compilerPath": "/usr/bin/x86_64-w64-mingw32-g++",
+			"cStandard": "c23",
+			"cppStandard": "c++23",
+			"intelliSenseMode": "windows-gcc-x64",
+			"compilerArgs": [
+				" -nostdinc", " -nostdinc++", "-Wall", "-Wextra"
+			]
+		},
+		{
+			"name": "GPT",
+			"includePath": [
+				"${workspaceFolder}/tools/gpt/"
+			],
+			"compilerPath": "/usr/bin/gcc",
+			"cStandard": "c23",
+			"cppStandard": "c++23",
+			"intelliSenseMode": "linux-gcc-x64",
+			"forcedInclude": [
+				"${workspaceFolder}/tools/gpt/global.hpp"
+			],
+			"compilerArgs": [
+				"-fshort-wchar"
+			],
+			"defines": [
+				"__SIZEOF_WCHAR_T__=2"
+			]
+		},
+		{
+			"name": "Image",
+			"includePath": [
+				"${workspaceFolder}/tools/Image/Include/"
+			],
+			"compilerPath": "/usr/bin/gcc",
+			"cStandard": "c23",
+			"cppStandard": "c++23",
+			"intelliSenseMode": "linux-gcc-x64",
+			"forcedInclude": [
+				"${workspaceFolder}/tools/Image/Include/Global.hpp"
+			]
+		},
+		{
+			"name": "FAT32",
+			"includePath": [
+				"${workspaceFolder}/tools/fat32/Include/"
+			],
+			"compilerPath": "/usr/bin/gcc",
+			"cStandard": "c23",
+			"cppStandard": "c++23",
+			"intelliSenseMode": "linux-gcc-x64"
+		},
+		{
+			"name": "BootMgr",
+			"includePath": [
+				"${workspaceFolder}/src/BootManager/Include",
+				"${workspaceFolder}/src/BootManager/Include/std",
+				"${workspaceFolder}/lib/OxizeOS/",
+				"${workspaceFolder}/lib/EDK2/MdePkg/Include/"
+			],
+			"compilerPath": "/usr/bin/x86_64-w64-mingw32-g++",
+			"cStandard": "c23",
+			"cppStandard": "c++23",
+			"intelliSenseMode": "linux-gcc-x64"
+		},
+		{
+			"name": "linux",
+			"includePath": [
+				"${workspaceFolder}/**"
+			],
+			"compilerPath": "/usr/bin/gcc",
+			"cStandard": "c23",
+			"cppStandard": "c++23",
+			"intelliSenseMode": "linux-gcc-x64"
+		}
+	],
+	"version": 4
 }

@@ -2,17 +2,10 @@
 
 #pragma once
 
-// ||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||| // 
-// |-------------------------------------------------------------------------------| //
-// | Minimal freestanding LIBSTDC++ Implementation for the OxizeOS kernel          | //
-// | VECTOR: Class for storing arrays dynamically with dynamic size and operations | //
-// |-------------------------------------------------------------------------------| //
-// ||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||| //
-
-#include <stdint.hpp>
+#include <stdint.h>
 #include <utility>
 #include <runtime.hpp>
-#include <stdio.hpp>
+#include <stdlib.hpp>
 
 #ifndef BLOCK_COUNT
 #define BLOCK_COUNT(bytes) (((bytes) + 0xFFFULL) / 0x1000ULL)
@@ -24,192 +17,192 @@
 
 namespace std
 {
-    template <typename T>
-    class vector
-    {
-    public:
-        vector() = default;
-        vector(size_t initialSize) {
-            reserve(initialSize);
-        }
+	template <typename T>
+	class vector
+	{
+	public:
+		vector() = default;
+		vector(size_t initialSize) {
+			reserve(initialSize);
+		}
 
-        vector(size_t initialSize, T initialEntry) {
-            reserve(initialSize);
-            for(size_t i = 0; i < initialSize; i++) new (&data[i]) T(initialEntry);
-            usedSize = initialSize;
-        }
+		vector(size_t initialSize, T initialEntry) {
+			reserve(initialSize);
+			for(size_t i = 0; i < initialSize; i++) new (&data[i]) T(initialEntry);
+			usedSize = initialSize;
+		}
 
-        vector(const vector& other)
-        {
-            if(other.reservedSize)
-            {
-                reserve(other.reservedSize);
+		vector(const vector& other)
+		{
+			if(other.reservedSize)
+			{
+				reserve(other.reservedSize);
 
-                for(size_t i = 0; i < other.usedSize; i++) new (&data[i]) T(other.data[i]);
+				for(size_t i = 0; i < other.usedSize; i++) new (&data[i]) T(other.data[i]);
 
-                usedSize = other.usedSize;
-            }
-        }
+				usedSize = other.usedSize;
+			}
+		}
 
-        vector& operator=(const vector& other)
-        {
-            if(this == other) return *this;
+		vector& operator=(const vector& other)
+		{
+			if(this == other) return *this;
 
-            clear();
+			clear();
 
-            if(other.reservedSize > reservedSize)
-            {
-                if(data) kfree(data);
-                data = nullptr;
-                reservedSize = 0;
+			if(other.reservedSize > reservedSize)
+			{
+				if(data) kfree(data);
+				data = nullptr;
+				reservedSize = 0;
 
-                reserve(other.reservedSize);
-            }
+				reserve(other.reservedSize);
+			}
 
-            for(size_t i = 0; i < other.usedSize; i++) new (&data[i]) T(other.data[i]);
+			for(size_t i = 0; i < other.usedSize; i++) new (&data[i]) T(other.data[i]);
 
-            usedSize = other.usedSize;
+			usedSize = other.usedSize;
 
-            return *this;
-        }
+			return *this;
+		}
 
-        vector(vector&& other)
-        {
-            data = other.data;
-            usedSize = other.usedSize;
-            reservedSize = other.reservedSize;
+		vector(vector&& other)
+		{
+			data = other.data;
+			usedSize = other.usedSize;
+			reservedSize = other.reservedSize;
 
-            other.data = nullptr;
-            other.usedSize = 0;
-            other.reservedSize = 0;
-        }
+			other.data = nullptr;
+			other.usedSize = 0;
+			other.reservedSize = 0;
+		}
 
-        vector& operator=(vector&& other)
-        {
-            if(this == &other) return *this;
+		vector& operator=(vector&& other)
+		{
+			if(this == &other) return *this;
 
-            clear();
+			clear();
 
-            if(data) kfree(data);
+			if(data) kfree(data);
 
-            data = other.data;
-            usedSize = other.usedSize;
-            reservedSize = other.reservedSize;
+			data = other.data;
+			usedSize = other.usedSize;
+			reservedSize = other.reservedSize;
 
-            other.data = nullptr;
-            other.usedSize = 0;
-            other.reservedSize = 0;
+			other.data = nullptr;
+			other.usedSize = 0;
+			other.reservedSize = 0;
 
-            return *this;
-        }
+			return *this;
+		}
 
-        ~vector() {
-            clear();
-            if(data) kfree(data);
-        }
+		~vector() {
+			clear();
+			if(data) kfree(data);
+		}
 
-        bool push_back(const T& value) {
-            if(usedSize == reservedSize) {
-                if(!relocate(reservedSize == 0 ? 4 : reservedSize * 2)) return false;
-            }
-            new (&data[usedSize]) T(value);
-            usedSize++;
-            return true;
-        }
+		bool push_back(const T& value) {
+			if(usedSize == reservedSize) {
+				if(!relocate(reservedSize == 0 ? 4 : reservedSize * 2)) return false;
+			}
+			new (&data[usedSize]) T(value);
+			usedSize++;
+			return true;
+		}
 
-        bool push_back(T&& value) {
-            if(usedSize == reservedSize) {
-                if(!relocate(reservedSize == 0 ? 4 : reservedSize * 2)) return false;
-            }
+		bool push_back(T&& value) {
+			if(usedSize == reservedSize) {
+				if(!relocate(reservedSize == 0 ? 4 : reservedSize * 2)) return false;
+			}
 
-            new (&data[usedSize]) T(std::move(value));
-            usedSize++;
-            return true;
-        }
+			new (&data[usedSize]) T(std::move(value));
+			usedSize++;
+			return true;
+		}
 
-        template <typename ...Args>
-        T& emplace_back(Args&&... args) {
-            if(usedSize == reservedSize) {
-                if(!relocate(reservedSize == 0 ? 4 : reservedSize * 2)) return nullptr;
-            }
-            new (&data[usedSize]) T(std::forward<Args>(args)...);
-            return data[usedSize++];
-        }
+		template <typename ...Args>
+		T& emplace_back(Args&&... args) {
+			if(usedSize == reservedSize) {
+				if(!relocate(reservedSize == 0 ? 4 : reservedSize * 2)) return nullptr;
+			}
+			new (&data[usedSize]) T(std::forward<Args>(args)...);
+			return data[usedSize++];
+		}
 
-        void pop_back() {
-            if(usedSize > 0) {
-                usedSize--;
-                data[usedSize].~T();
-            }
-        }
+		void pop_back() {
+			if(usedSize > 0) {
+				usedSize--;
+				data[usedSize].~T();
+			}
+		}
 
-        void clear() {
-            for (size_t i = 0; i < usedSize; i++) data[i].~T();
-            usedSize = 0;
-        }
+		void clear() {
+			for (size_t i = 0; i < usedSize; i++) data[i].~T();
+			usedSize = 0;
+		}
 
-        void reserve(size_t newCapacity) {
-            if(newCapacity > reservedSize) relocate(newCapacity);
-        }
+		void reserve(size_t newCapacity) {
+			if(newCapacity > reservedSize) relocate(newCapacity);
+		}
 
-        bool resize(size_t newSize) {
-            if(newSize < usedSize) {
-                for(size_t i = newSize; i < usedSize; i++) data[i].~T();
-                usedSize = newSize;
-                return true;
-            }
+		bool resize(size_t newSize) {
+			if(newSize < usedSize) {
+				for(size_t i = newSize; i < usedSize; i++) data[i].~T();
+				usedSize = newSize;
+				return true;
+			}
 
-            if(newSize > reservedSize) {
-                if(!relocate(newSize)) return false;
-            }
+			if(newSize > reservedSize) {
+				if(!relocate(newSize)) return false;
+			}
 
-            for(size_t i = usedSize; i < newSize; i++) new (&data[i]) T();
+			for(size_t i = usedSize; i < newSize; i++) new (&data[i]) T();
 
-            usedSize = newSize;
+			usedSize = newSize;
 
-            return true;
-        }
+			return true;
+		}
 
-        T& operator[](size_t i) { return data[i]; }
-        const T& operator[](size_t i) const { return data[i]; }
-        
-        size_t size() const {
-            return usedSize;
-        }
+		T& operator[](size_t i) { return data[i]; }
+		const T& operator[](size_t i) const { return data[i]; }
+		
+		size_t size() const {
+			return usedSize;
+		}
 
-        size_t capacity() const {
-            return reservedSize;
-        }
+		size_t capacity() const {
+			return reservedSize;
+		}
 
-        T* begin() {
-            return data;
-        }
+		T* begin() {
+			return data;
+		}
 
-        T* end() {
-            return data + usedSize;
-        }
-    private:
-        T* data = nullptr;
-        size_t usedSize = 0;
-        size_t reservedSize = 0;
+		T* end() {
+			return data + usedSize;
+		}
+	private:
+		T* data = nullptr;
+		size_t usedSize = 0;
+		size_t reservedSize = 0;
 
-        bool relocate(size_t newCapacity) {
-            size_t newSize = newCapacity * sizeof(T);
-            T* newData = reinterpret_cast<T*>(kmalloc(newSize));
-            if(!newData) return false;
+		bool relocate(size_t newCapacity) {
+			size_t newSize = newCapacity * sizeof(T);
+			T* newData = reinterpret_cast<T*>(kmalloc(newSize));
+			if(!newData) return false;
 
-            for(size_t i = 0; i < usedSize; i++)
-            {
-                new (&newData[i]) T(std::move(data[i]));
-                data[i].~T();
-            }
+			for(size_t i = 0; i < usedSize; i++)
+			{
+				new (&newData[i]) T(std::move(data[i]));
+				data[i].~T();
+			}
 
-            if(data) kfree(data);
+			if(data) kfree(data);
 
-            data = newData;
-            reservedSize = newCapacity;
+			data = newData;
+			reservedSize = newCapacity;
 
-            return true;
-        }
-    };
+			return true;
+		}
+	};
 }

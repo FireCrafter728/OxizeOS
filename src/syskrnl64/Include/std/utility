@@ -2,117 +2,108 @@
 
 #pragma once
 
-// |||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||| // 
-// |----------------------------------------------------------------------| //
-// | Minimal freestanding LIBSTDC++ Implementation for the OxizeOS kernel | //
-// | UTILITY: various utility functions for other LIBSTDC++ components    | //
-// |----------------------------------------------------------------------| //
-// |||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||| //
-
-// 
-
 namespace std
 {
-    // ---- //
-    // MOVE //
-    // ---- //
+	// ---- //
+	// MOVE //
+	// ---- //
 
-    template <typename T>
-    constexpr T&& move(T& t) noexcept
-    {
-        return static_cast<T&&>(t);
-    }
+	template <typename T>
+	constexpr T&& move(T& t) noexcept
+	{
+		return static_cast<T&&>(t);
+	}
 
-    // ------- //
-    // FORWARD //
-    // ------- //
+	// ------- //
+	// FORWARD //
+	// ------- //
 
-    template <typename T>
-    constexpr T&& forward(std::remove_reference_t<T>& t) noexcept
-    {
-        return static_cast<T&&>(t);
-    }
+	template <typename T>
+	constexpr T&& forward(std::remove_reference_t<T>& t) noexcept
+	{
+		return static_cast<T&&>(t);
+	}
 
-    template <typename T>
-    constexpr T&& forward(std::remove_reference_t<T>&& t) noexcept
-    {
-        return static_cast<T&&>(t);
-    }
+	template <typename T>
+	constexpr T&& forward(std::remove_reference_t<T>&& t) noexcept
+	{
+		return static_cast<T&&>(t);
+	}
 
-    // ---- //
-    // PAIR //
-    // ---- //
+	// ---- //
+	// PAIR //
+	// ---- //
 
-    template<typename T1, typename T2>
-    struct pair
-    {
-        constexpr pair() : first(), second() {}
-        constexpr pair(const T1& element1, const T2& element2) noexcept : first(element1), second(element2) {}
+	template<typename T1, typename T2>
+	struct pair
+	{
+		constexpr pair() : first(), second() {}
+		constexpr pair(const T1& element1, const T2& element2) noexcept : first(element1), second(element2) {}
 
-        template<typename U1, typename U2>
-        constexpr pair(U1&& element1, U2&& element2) : first(static_cast<T1&&>(element1)), second(static_cast<T2&&>(element2)) {}
+		template<typename U1, typename U2>
+		constexpr pair(U1&& element1, U2&& element2) : first(static_cast<T1&&>(element1)), second(static_cast<T2&&>(element2)) {}
 
-        constexpr pair(const pair&) = default;
-        constexpr pair(pair&&) = default;
+		constexpr pair(const pair&) = default;
+		constexpr pair(pair&&) = default;
 
-        pair& operator=(const pair&) = default;
-        pair& operator=(pair&&) = default;
+		pair& operator=(const pair&) = default;
+		pair& operator=(pair&&) = default;
 
-        void swap(pair& other)
-        {
-            T1 first_tmp = first;
-            first = other.first;
-            other.first = first_tmp;
+		void swap(pair& other)
+		{
+			T1 first_tmp = first;
+			first = other.first;
+			other.first = first_tmp;
 
-            T2 second_tmp = second;
-            second = other.second;
-            other.second = second_tmp;
-        }
+			T2 second_tmp = second;
+			second = other.second;
+			other.second = second_tmp;
+		}
 
-        T1 first;
-        T2 second;
-    };
+		T1 first;
+		T2 second;
+	};
 
 
-    template<typename T1, typename T2>
-    constexpr pair<T1, T2> make_pair(T1 first, T2 second) { return pair<T1, T2>(first, second);}
+	template<typename T1, typename T2>
+	constexpr pair<T1, T2> make_pair(T1 first, T2 second) { return pair<T1, T2>(first, second);}
 
-    template<typename T1, typename T2>
-    void swap(pair<T1, T2>& first, pair<T1, T2>& second) { first.swap(second);}
+	template<typename T1, typename T2>
+	void swap(pair<T1, T2>& first, pair<T1, T2>& second) { first.swap(second);}
 
-    template<class T1, class T2>
-    bool operator==(const pair<T1, T2>& first, const pair<T1, T2>& second)
-    {
-        return first.first == second.first && first.second == second.second;
-    }
+	template<class T1, class T2>
+	bool operator==(const pair<T1, T2>& first, const pair<T1, T2>& second)
+	{
+		return first.first == second.first && first.second == second.second;
+	}
 
-    template<class T1, class T2>
-    bool operator!=(const pair<T1, T2>& first, const pair<T1, T2>& second)
-    {
-        return !(first == second);
-    }
+	template<class T1, class T2>
+	bool operator!=(const pair<T1, T2>& first, const pair<T1, T2>& second)
+	{
+		return !(first == second);
+	}
 
-    template<class T1, class T2>
-    bool operator<(const pair<T1, T2>& first, const pair<T1, T2>& second)
-    {
-        return (first.first < second.first) || (!(second.first < first.first) && first.second < second.second);
-    }
+	template<class T1, class T2>
+	bool operator<(const pair<T1, T2>& first, const pair<T1, T2>& second)
+	{
+		return (first.first < second.first) || (!(second.first < first.first) && first.second < second.second);
+	}
 
-    template<class T1, class T2>
-    bool operator>(const pair<T1, T2>& first, const pair<T1, T2>& second)
-    {
-        return second < first;
-    }
+	template<class T1, class T2>
+	bool operator>(const pair<T1, T2>& first, const pair<T1, T2>& second)
+	{
+		return second < first;
+	}
 
-    template<class T1, class T2>
-    bool operator<=(const pair<T1, T2>& first, const pair<T1, T2>& second)
-    {
-        return !(second < first);
-    }
+	template<class T1, class T2>
+	bool operator<=(const pair<T1, T2>& first, const pair<T1, T2>& second)
+	{
+		return !(second < first);
+	}
 
-    template<class T1, class T2>
-    bool operator>=(const pair<T1, T2>& first, const pair<T1, T2>& second)
-    {
-        return !(first < second);
-    }
+	template<class T1, class T2>
+	bool operator>=(const pair<T1, T2>& first, const pair<T1, T2>& second)
+	{
+		return !(first < second);
+	}
 }

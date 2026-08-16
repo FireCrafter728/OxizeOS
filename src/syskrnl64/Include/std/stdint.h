@@ -2,11 +2,11 @@
 
 #pragma once
 
-// ||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||| // 
-// |-----------------------------------------------------------------------------------------------------------| //
-// | Minimal freestanding LIBSTDC Implementation for the OxizeOS kernel                                        | //
-// | STDINT: compatibility header for libraries that expect this present, stdint.hpp is used primarily instead | //
-// |-----------------------------------------------------------------------------------------------------------| //
-// ||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||| //
+// Include the correct stdint implementing header based off the architecture
 
-#include <stdint.hpp>
+#if defined(__x86_64__) || defined(__amd64__)
+
+#include <arch/x86_64/std/stdint.hpp>
+
+#endif
+

@@ -10,6 +10,7 @@
 // |||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||| //
 
 #include <stdint.h>
+#include <stddef.h>
 
 enum MemoryRegionType : uint8_t
 {
@@ -105,4 +106,6 @@ struct SystemTable
 	uint64_t usableRAMPages;
 	KernelStructureRegion kernelStructureRegions[10];
 	BootTimestamp bootTime;
+	uintptr_t ResourceSectionVirtAddr;
+	uintptr_t ResourceSectionRootDirectoryAddress;
 };

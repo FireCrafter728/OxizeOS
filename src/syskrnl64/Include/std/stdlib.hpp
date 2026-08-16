@@ -2,12 +2,8 @@
 
 #pragma once
 
-// |||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||| // 
-// |--------------------------------------------------------------------| //
-// | Minimal freestanding LIBSTDC Implementation for the OxizeOS kernel | //
-// | STDLIB: various utility functions for interacting with the system  | //
-// |--------------------------------------------------------------------| //
-// |||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||| //
+#include <stdint.h>
+#include <stddef.h>
 
 // --------------------------- //
 // MEMORY MANAGEMENT FUNCTIONS //

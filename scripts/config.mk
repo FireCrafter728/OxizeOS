@@ -6,7 +6,6 @@ export OBJ=$(abspath obj)
 export SRC=$(abspath src)
 export TOOLS=$(abspath tools)
 export LIB=$(abspath lib)
-export TOOLCHAIN=$(abspath toolchain)
 export SCRIPTS=$(abspath scripts)
 
 export CC=gcc
@@ -22,27 +21,19 @@ export LINKFLAGS=
 export ARFLAGS
 export LIBS=
 
-export X64_TARGET=x86_64-elf
+export X64_TARGET=x86_64-w64-mingw32
 export X64_TARGET_CC=$(X64_TARGET)-gcc
 export X64_TARGET_CXX=$(X64_TARGET)-g++
 export X64_TARGET_LD=$(X64_TARGET)-gcc
 export X64_TARGET_LDXX=$(X64_TARGET)-g++
 export X64_TARGET_AR=$(X64_TARGET)-ar
+export X64_TARGET_WINDRES=$(X64_TARGET)-windres
 export X64_TARGET_ASM=nasm
-export X64_TARGET_CFLAGS= -std=c23 -Wall -Wextra -O2 -ffreestanding -nostdlib -nostdinc -fPIC -m64
-export X64_TARGET_CXXFLAGS= -std=c++23 -Wall -Wextra -O2 -ffreestanding -nostdlib -nostdinc -nostdinc++ -fPIC -m64
-export X64_TARGET_ASMFLAGS=
-export X64_TARGET_LINKFLAGS=-nostdlib -pie
-export X64_TARGET_ARFLAGS=
+
+export X64_TARGET_CFLAGS= -std=c23 -Wall -Wextra -O2 -ffreestanding -nostdlib -nostdinc -m64
+export X64_TARGET_CXXFLAGS= -std=c++23 -Wall -Wextra -O2 -ffreestanding -nostdlib -nostdinc -nostdinc++ -m64
+export X64_TARGET_LINKFLAGS=-nostdlib
 export X64_TARGET_LIBS=-lgcc
-
-export MINGW_CXX=x86_64-w64-mingw32-g++
-export MINGW_LDXX=x86_64-w64-mingw32-g++
-export MINGW_CXXFLAGS= -std=c++23 -Wall -Wextra -O2 -ffreestanding -nostdlib -nostdinc -nostdinc++ -m64 
-export MINGW_LINKFLAGS= -nostdlib
-
-export GCC_VERSION=16.1.0
-export BINUTILS_VERSION=2.46.1
-
-export GCC_URL=https://ftp.gnu.org/gnu/gcc/gcc-$(GCC_VERSION)/gcc-$(GCC_VERSION).tar.gz
-export BINUTILS_URL=https://ftp.gnu.org/gnu/binutils/binutils-$(BINUTILS_VERSION).tar.gz
+export X64_TARGET_ARFLAGS=
+export X64_TARGET_ASMFLAGS= -f win64
+export X64_TARGET_WINDRES_FLAGS=

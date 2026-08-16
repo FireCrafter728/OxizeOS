@@ -1,22 +1,9 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-//
-// OxizeOS Operating System for the x86 amd64(x86_64) architecture
-// Copyright (C) 2025-2026 FireCrafter728
-//
-// This program is free software: you can redistribute it and/or modify
-// it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-//
-// This program is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU General Public License for more details.
-//
-// You should have received a copy of the GNU General Public License
-// along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 #include <FileSystem.hpp>
+
+#include <Protocol/LoadedImage.h>
+#include <stdio.hpp>
 
 using namespace BootMgr::FS;
 
@@ -98,4 +85,32 @@ EFI_STATUS FS::Seek(EFI_FILE_PROTOCOL* file, size_t offset)
 	if(!file) return EFI_INVALID_PARAMETER;
 
 	return file->SetPosition(file, offset);
+}
+
+size_t FS::GetFileSize(EFI_FILE_PROTOCOL* file)
+{
+	if(!file) {
+		return 0;
+		lastStatus = EFI_INVALID_PARAMETER;
+	}
+	
+	// We could use file->GetInfo, but that would be a lot of code and unnecesarry memory allocation, so instead seek to the end of the file and get the file position
+	lastStatus = file->SetPosition(file, 0xFFFFFFFFFFFFFFFFULL);
+	if(EFI_ERROR(lastStatus)) return 0;
+
+	uint64_t position;
+	lastStatus = file->GetPosition(file, &position);
+	return position;
+}
+
+size_t FS::GetFilePosition(EFI_FILE_PROTOCOL* file)
+{
+	if(!file) {
+		return 0;
+		lastStatus = EFI_INVALID_PARAMETER;
+	}
+
+	uint64_t position;
+	lastStatus = file->GetPosition(file, &position);
+	return position;
 }

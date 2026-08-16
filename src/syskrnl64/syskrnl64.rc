@@ -1,0 +1,52 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+
+// Definitions
+
+#define FULL_VERSION_DESC 1,0,0,14
+#define FULL_VERSION_STRING "1.0.0.0014"
+
+#define VERSION_STRING "1.0.0"
+#define BUILD_STRING "0014"
+
+#define LICENSE_STRING "GNU General Public License v3.0 or later"
+
+#define COPYRIGHT_DATE_START_STRING "2025"
+#define COPYRIGHT_DATE_END_STRING "2026"
+
+
+// OS Kernel Version in the PE Headers
+
+VERSION_HEADER VERSIONINFO
+FILEVERSION FULL_VERSION_DESC
+PRODUCTVERSION FULL_VERSION_DESC
+BEGIN
+	BLOCK "StringFileInfo"
+	BEGIN
+		BLOCK "040904B0"
+		BEGIN
+			VALUE "ProductName", "OxizeOS x86-64 System Kernel"
+			VALUE "FileDescription", "OxizeOS x86-64 System Kernel"
+			VALUE "FileVersion", FULL_VERSION_STRING
+			VALUE "ProductVersion", FULL_VERSION_STRING
+			VALUE "InternalName", "syskrnl64.exe"
+			VALUE "OriginalFilename", "syskrnl64.exe"
+		END
+	END
+
+	BLOCK "VarFileInfo"
+	BEGIN
+		VALUE "Translation", 0x0409, 1200
+	END
+END
+
+// Various strings, uses the EXT_STRING custom type
+
+KERNEL_VERSION EXT_STRING 					BEGIN VERSION_STRING 				END
+KERNEL_BUILD EXT_STRING 					BEGIN BUILD_STRING 					END
+KERNEL_LICENSE EXT_STRING 					BEGIN LICENSE_STRING 				END
+KERNEL_COPYRIGHT_START_DATE EXT_STRING		BEGIN COPYRIGHT_DATE_START_STRING 	END
+KERNEL_COPYRIGHT_END_DATE EXT_STRING 		BEGIN COPYRIGHT_DATE_END_STRING 	END
+
+// Test resources
+
+TEST_FILE RCDATA "../../resources/tests/test.txt"

@@ -1,0 +1,515 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+
+#pragma once
+
+#include <main/defs.hpp>
+#include <algorithm>
+
+#include <stdlib.hpp>
+#include <string.hpp>
+#include <stdint.h>
+
+namespace std
+{
+	class string
+	{
+	public:
+		// Constructors
+		string()
+		{
+			if(!expand(1)) return;
+			_Data[0] = '\0';
+			_Size = 0;
+		}
+
+		string(const char* cstr)
+		{
+			if(!cstr) return;
+			size_t len = strlen(cstr);
+
+			_Data = reinterpret_cast<char*>(kmalloc(len + 1));
+			if(!_Data)
+			{
+				_Size = 0;
+				_Capacity = 0;
+				return;
+			}
+
+			_Size = len;
+			_Capacity = len;
+
+			strcpy(_Data, cstr);
+		}
+
+		string(size_t count, char c)
+		{
+			if(count == 0) return;
+			if(!expand(count)) return;
+
+			memset(_Data, c, count);
+			_Data[count] = '\0';
+			_Size = count;
+		}
+	
+		string(const char* str, size_t count)
+		{
+			if(count == 0 || !str) return;
+			if(!expand(count)) return;
+
+			memcpy(_Data, str, count);
+			_Size = count;
+			_Data[_Size] = '\0';
+		}
+
+		string(const string& other, size_t pos)
+		{
+			if(pos > other._Size) return;
+
+			_Size = other._Size - pos;
+			if(_Size == 0)
+			{
+				if(!expand(1)) return;
+				_Data[0] = '\0';
+				return;
+			}
+			if(!expand(_Size)) return;
+
+			memcpy(_Data, other._Data + pos, _Size);
+			_Data[_Size] = '\0';
+		}
+
+		string(const string& other, size_t pos, size_t count)
+		{
+			if(count == 0) return;
+			if(pos > other._Size) return;
+
+			_Size = std::min(other._Size - pos, count);
+			if(_Size == 0)
+			{
+				if(!expand(1)) return;
+				_Data[0] = '\0';
+				return;
+			}
+			if(!expand(_Size)) return;
+
+			memcpy(_Data, other._Data + pos, _Size);
+			_Data[_Size] = '\0';
+		}
+
+		// copy / move constructors
+
+		string(const string& str)
+		{
+			if(str._Size == 0)
+			{
+				if(!expand(1)) return;
+				_Data[0] = '\0';
+				return;
+			}
+
+			if(!expand(str._Size))
+			{
+				_Size = 0;
+				_Capacity = 0;
+				return;
+			}
+
+			_Size = str._Size;
+
+			strcpy(_Data, str._Data);
+		}
+
+		string(string&& str)
+		{
+			// Do not copy the buffer, but instead reuse the same one, and mark _Data for the other string as nullptr
+			// Because it's the same type / class, we can access the private contents of that string
+
+			_Data = str._Data;
+			_Size = str._Size;
+			_Capacity = str._Capacity;
+			
+			str._Data = nullptr;
+			str._Size = 0;
+			str._Capacity = 0;
+		}
+
+		// Copy / Move assignments
+		string& operator=(const string& other)
+		{
+			if(this == &other) return *this;
+			
+			if(!expand(other._Size)) return *this;
+			strcpy(_Data, other._Data);
+
+			_Size = other._Size;
+			return *this;
+		}
+
+		string& operator=(string&& other)
+		{
+			if(this == &other) return *this;
+
+			kfree(_Data);
+
+			_Data = other._Data;
+			_Size = other._Size;
+			_Capacity = other._Capacity;
+			
+			other._Data = nullptr;
+			other._Size = 0;
+			other._Capacity = 0;
+			
+			return *this;
+		}
+
+		~string()
+		{
+			if(_Data) kfree(_Data);
+		}
+
+		size_t length() const
+		{
+			return _Size;
+		}
+
+		size_t size() const
+		{
+			return _Size;
+		}
+
+		size_t capacity() const
+		{
+			return _Capacity;
+		}
+
+		const char* c_str() const
+		{
+			return _Data;
+		}
+
+		const char* data() const
+		{
+			return _Data;
+		}
+
+		// Operators
+
+		char& operator[](size_t pos)
+		{
+			return _Data[pos];
+		}
+
+		const char& operator[](size_t pos) const
+		{
+			return _Data[pos];
+		}
+
+		string& operator+=(const string& other)
+		{
+			if(this == &other)
+			{
+				// String should be duplicated in this case
+				size_t oldSize = _Size;
+
+				if(!expand(oldSize * 2)) return *this;
+
+				memcpy(_Data + oldSize, _Data, oldSize);
+
+				_Size = oldSize * 2;
+				_Data[_Size] = '\0';
+
+				return *this;
+			}
+			if(!expand(_Size + other._Size)) return *this;
+
+			memcpy(_Data + _Size, other._Data, other._Size);
+
+			_Size += other._Size;
+			_Data[_Size] = '\0';
+
+			return *this;
+		}
+
+		string& operator+=(char c)
+		{
+			if(!expand(_Size + 1)) return *this;
+
+			_Data[_Size] = c;
+			_Size++;
+			_Data[_Size] = '\0';
+
+			return *this;
+		}
+
+		bool operator==(const string& other) const
+		{
+			if(_Size != other._Size) return false;
+			return strcmp(_Data, other._Data) == 0;
+		}
+
+		bool operator!=(const string& other) const
+		{
+			return !(*this == other);
+		}
+
+		// Extra functions
+
+		void clear()
+		{
+			memset(_Data, 0, _Size);
+			_Size = 0;
+		}
+
+		void reserve(size_t newSize)
+		{
+			expand(newSize);
+		}
+
+		void resize(size_t newSize)
+		{
+			if(newSize > _Size)
+			{
+				if(!expand(newSize)) return;
+			
+				memset(_Data + _Size, 0, newSize - _Size);
+			}
+		
+			_Size = newSize;
+			_Data[_Size] = '\0';
+		}
+
+		bool empty()
+		{
+			return _Size == 0;
+		}
+
+		string substr(size_t pos = 0, size_t count = npos) const
+		{
+			return string(*this, pos, count);
+		}
+
+		// Finding functions
+
+		size_t find(const string& str, size_t pos = 0) const
+		{
+			if(pos > _Size) return npos;
+			if(str._Size == 0) return pos;
+			if(str._Size > _Size - pos) return npos;
+
+			for(size_t i = 0; i <= _Size - str._Size; i++)
+			{
+				if(memcmp(_Data + i, str._Data, str._Size) == 0) return i;
+			}
+			
+			return npos;
+		}
+
+		size_t find(const char* str, size_t pos = 0) const
+		{
+			return find(string(str), pos);
+		}
+
+		size_t find(char c, size_t pos = 0) const
+		{
+			if(pos >= _Size) return npos;
+			for(size_t i = pos; i < _Size; i++)
+			{
+				if(_Data[i] == c) return i;
+			}
+
+			return npos;
+		}
+
+		size_t find_first_of(const string& str, size_t pos = 0) const
+		{
+			if(pos >= _Size || str._Size == 0) return npos;
+
+			for(size_t i = 0; i < _Size; i++)
+			{
+				for(size_t j = 0; j < str._Size; j++)
+				{
+					if(_Data[i] == str._Data[j]) return i;
+				}
+			}
+
+			return npos;
+		}
+
+		size_t find_first_of(const char* str, size_t pos = 0) const
+		{
+			return find_first_of(string(str), pos);
+		}
+
+		size_t find_first_of(char c, size_t pos = 0) const
+		{
+			return find(c, pos);
+		}
+
+		size_t find_first_not_of(const string& str, size_t pos = 0) const
+		{
+			if(pos >= _Size) return npos;
+			if(str._Size == 0) return pos;
+
+			for(size_t i = 0; i < _Size; i++)
+			{
+				bool found = false;
+
+				for(size_t j = 0; j < str._Size; j++)
+				{
+					if(_Data[i] == str._Data[j])
+					{
+						found = true;
+						break;
+					}
+				}
+
+				if(!found) return i;
+			}
+
+			return npos;
+		}
+
+		size_t find_first_not_of(const char* str, size_t pos = 0) const
+		{
+			return find_first_not_of(string(str), pos);
+		}
+
+		size_t find_first_not_of(char c, size_t pos = 0) const
+		{
+			if(pos >= _Size) return npos;
+
+			for(size_t i = pos; i < _Size; i++)
+			{
+				if(_Data[i] != c) return i;
+			}
+
+			return npos;
+		}
+
+		size_t find_last_of(const string& str, size_t pos = npos) const
+		{
+			if(_Size == 0 || str._Size == 0) return npos;
+
+			if(pos >= _Size)
+				pos = _Size - 1;
+
+			for(size_t i = pos + 1; i > 0; i--)
+			{
+				size_t index = i - 1;
+			
+				for(size_t j = 0; j < str._Size; j++)
+				{
+					if(_Data[index] == str._Data[j])
+						return index;
+				}
+			}
+		
+			return npos;
+		}
+
+		size_t find_last_of(const char* str, size_t pos = npos) const
+		{
+			return find_last_of(string(str), pos);
+		}
+
+		size_t find_last_of(char c, size_t pos = npos) const
+		{
+			if(_Size == 0) return npos;
+
+			if(pos >= _Size)
+				pos = _Size - 1;
+
+			for(size_t i = pos + 1; i > 0; i--)
+			{
+				size_t index = i - 1;
+			
+				if(_Data[index] == c)
+					return index;
+			}
+		
+			return npos;
+		}
+
+		size_t find_last_not_of(const string& str, size_t pos = npos) const
+		{
+			if(_Size == 0) return npos;
+
+			if(pos >= _Size)
+				pos = _Size - 1;
+
+			for(size_t i = pos + 1; i > 0; i--)
+			{
+				size_t index = i - 1;
+				bool found = false;
+			
+				for(size_t j = 0; j < str._Size; j++)
+				{
+					if(_Data[index] == str._Data[j])
+					{
+						found = true;
+						break;
+					}
+				}
+			
+				if(!found)
+					return index;
+			}
+		
+			return npos;
+		}
+
+		size_t find_last_not_of(const char* str, size_t pos = npos) const
+		{
+			return find_last_not_of(string(str), pos);
+		}
+
+		size_t find_last_not_of(char c, size_t pos = npos) const
+		{
+			if(_Size == 0) return npos;
+
+			if(pos >= _Size)
+				pos = _Size - 1;
+
+			for(size_t i = pos + 1; i > 0; i--)
+			{
+				size_t index = i - 1;
+			
+				if(_Data[index] != c)
+					return index;
+			}
+		
+			return npos;
+		}
+
+	private:
+		char* _Data = nullptr;
+		size_t _Size = 0;
+		size_t _Capacity = 0;
+
+		bool expand(size_t minimalSize)
+		{
+			if(minimalSize <= _Capacity) return true;
+
+			size_t newCapacity = _Capacity ? _Capacity * 2 : 8;
+			if(newCapacity < minimalSize) newCapacity = minimalSize;
+
+			char* newData = reinterpret_cast<char*>(kmalloc(newCapacity + 1));
+			if(!newData) return false;
+
+			if(_Data)
+			{
+				strncpy(newData, _Data, _Size + 1);
+				kfree(_Data);
+			}
+			else newData[0] = '\0';
+
+			_Data = newData;
+			_Capacity = newCapacity;
+
+			return true;
+		}
+
+	public:
+		static constexpr size_t npos = UINT64_MAX;
+	};
+}

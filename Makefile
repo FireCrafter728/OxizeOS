@@ -3,11 +3,9 @@
 
 include scripts/config.mk
 
-.PHONY: all bootmgr syskrnl64 tools tools-fat32 tools-image tools-gpt toolchain image dir clean
+.PHONY: all bootmgr syskrnl64 tools tools-fat32 tools-image tools-gpt image dir clean
 
 all: dir bootmgr syskrnl64 tools image
-
-include scripts/toolchain-gcc.mk
 
 bootmgr:
 	$(MAKE) -C $(SRC)/BootManager
