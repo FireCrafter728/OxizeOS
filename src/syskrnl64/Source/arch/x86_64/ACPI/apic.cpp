@@ -1,9 +1,13 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #include <arch/x86_64/ACPI/apic.hpp>
+
 #include <arch/x86_64/Utility/io.hpp>
 #include <arch/x86_64/Utility/cpuid.hpp>
+
 #include <arch/x86_64/Interrupts/isr_mappings.hpp>
+
+#include <arch/x86_64/MP/smp_defs.hpp>
 
 #include <stdio.hpp>
 #include <string.hpp>
@@ -12,11 +16,11 @@
 
 using namespace krnl;
 
-bool APIC::Initialize(ACPI_MADT* madt)
+KRNL_STATUS APIC::Initialize(ACPI_MADT* madt)
 {
 	if(!madt) {
-		printf("Invalid APIC Initializer args\r\n");
-		return false;
+		printf("[SYSKRNL64] [APIC] [ERROR]: Invalid Initialize() input parameters\r\n");
+		return KRNL_INVALID_PARAMETER;
 	}
 
 	this->madt = madt;
@@ -30,108 +34,75 @@ bool APIC::Initialize(ACPI_MADT* madt)
 
 	CPUID_Regs regs = GetCPUIDInfo(1);
 	X2APICSupported = regs.rcx & (1 << 21);
+	if(X2APICSupported) printf("[SYSKRNL64] [APIC] [INFO]: X2APIC is supported\r\n");
 
-	// Parse all MADT entries and store local copies of different entries in vectors
+	// Parse MADT entries
 
-	uint8_t* buffer = reinterpret_cast<uint8_t*>(madt);
+	KRNL_STATUS status = ParseMADT();
+	if(KRNL_ERROR(status)) return status;
 
-	uintptr_t positionInMADT = sizeof(ACPI_MADT);
-	while(true)
+	// Initialize LAPIC for the BSP
+
+	status = InitializeCurrentLP();
+	if(KRNL_ERROR(status)) return status;
+
+	// Setup IOAPICs
+
+	status = InitializeIOAPIC();
+	if(KRNL_ERROR(status)) return status;
+
+	// Fill in CPU Threads vector
+
+	regs = {};
+	regs = GetCPUIDInfo(0x01, 0x00);
+	uint32_t bspAPICID = GetCurrentAPICID();
+
+	if(X2APICSupported && x2ApicEntries.size() > 0)
 	{
-		uint8_t* entryPtr = buffer + positionInMADT;
-		ACPI_MADTEntryHeader* hdr = reinterpret_cast<ACPI_MADTEntryHeader*>(entryPtr);
-		switch(hdr->type)
+		cpuThreads.resize(x2ApicEntries.size());
+		for(size_t i = 0; i < x2ApicEntries.size(); i++)
 		{
-			case APIC_MADT_LocalAPIC:
-			{
-				ACPI_MADT_LAPIC* lapic = reinterpret_cast<ACPI_MADT_LAPIC*>(entryPtr);
-				if(lapic->hdr.length < sizeof(ACPI_MADT_LAPIC)) {
-					printf("[SYSKRNL64] [APIC] [ERROR]: Invalid LAPIC Entry length 0x%llX at MADT offset 0x%llX\r\n", lapic->hdr.length, positionInMADT);
-					return false;
-				}
-				if((lapic->flags & 0x01) == 0) {
-					printf("[SYSKRNL64] [APIC] [WARN]: CPU Core with an APIC CPU ID of %d is disabled\r\n", lapic->apiccpuid);
-					break;
-				}
-				lapicEntries.push_back(*lapic);
+			ACPI_MADT_X2APIC* x2ApicEntry = &x2ApicEntries[i];
+			APIC_CPUThreadDesc* threadDesc = &cpuThreads[i];
 
-				break;
-			}
-			case APIC_MADT_IOAPIC:
-			{
-				static size_t currentIoapic = 0;
-				ACPI_MADT_IOAPIC* ioapic = reinterpret_cast<ACPI_MADT_IOAPIC*>(entryPtr);
-				if(ioapic->hdr.length < sizeof(ACPI_MADT_IOAPIC)) {
-					printf("[SYSKRNL64] [APIC] [ERROR]: Invalid IOAPIC entry length 0x%llX at MADT offset 0x%llX\r\n", ioapic->hdr.length, positionInMADT);
-					return false;
-				}
-				if(ioapic->ioapicAddr == 0 || (ioapic->ioapicAddr & (PAGE_SIZE - 1)) != 0) {
-					printf("[SYSKRNL64] [APIC] [ERROR]: Null or misaligned IOAPIC Physical address 0x%llX at IOAPIC entry at MADT offset 0x%llX\r\n", ioapic->ioapicAddr, positionInMADT);
-					return false;
-				}
-				IOAPIC_Desc desc = {*ioapic, 0, 0, 0, 0};
-				ioapicEntries[currentIoapic++] = desc;
-				ioapicEntryCount++;
-				break;
-			}
-			case APIC_MADT_InterruptSourceOverride:
-			{
-				ACPI_MADT_ISO* iso = reinterpret_cast<ACPI_MADT_ISO*>(entryPtr);
-				if(iso->hdr.length < sizeof(ACPI_MADT_ISO)) {
-					printf("[SYSKRNL64] [APIC] [ERROR]: Invalid Interrupt Source Override entry length 0x%llX at MADT offset 0x%llX\r\n", iso->hdr.length, positionInMADT);
-					return false;
-				}
-				if(iso->IRQSource > 15) {
-					printf("[SYSKRNL64] [APIC] [ERROR]: IRQ Source %d for Interrupt Source Override entry is bigger than 15, ISO entry offset: 0x%llX\r\n", iso->IRQSource, positionInMADT);
-					return false;
-				}
-				isoEntries.push_back(*iso);
-				break;
-			}
-			case APIC_MADT_ProcessorLocalX2APIC:
-			{
-				if(!X2APICSupported) {
-					printf("[SYSKRNL64] [APIC] [WARN]: X2APIC Entry at MADT offset 0x%llX present when CPU doesn't support X2APIC\r\n", positionInMADT);
-					break;
-				}
-				ACPI_MADT_X2APIC* x2Apic = reinterpret_cast<ACPI_MADT_X2APIC*>(entryPtr);
-				if(x2Apic->hdr.length < sizeof(ACPI_MADT_X2APIC)) {
-					printf("[SYSKRNL64] [APIC] [ERROR]: Invalid X2APIC length 0x%llX at MADT offset 0x%llX\r\n", x2Apic->hdr.length, positionInMADT);
-					return false;
-				}
-				if((x2Apic->flags & 0x01) == 0) {
-					printf("[SYSKRNL64] [APIC] [WARN]: CPU Core with an X2APIC CPU ID of %d is disabled\r\n", x2Apic->apicProcID);
-					break;
-				}
-				x2ApicEntries.push_back(*x2Apic);
-				break;
-			}
-			default: break;
+			threadDesc->apicId = x2ApicEntry->x2apicId;
+			threadDesc->flags = x2ApicEntry->flags;
+			threadDesc->bsp = x2ApicEntry->x2apicId == bspAPICID;
 		}
+	}
+	else
+	{
+		cpuThreads.resize(lapicEntries.size());
+		for(size_t i = 0; i < lapicEntries.size(); i++)
+		{
+			ACPI_MADT_LAPIC* lapicEntry = &lapicEntries[i];
+			APIC_CPUThreadDesc* threadDesc = &cpuThreads[i];
 
-		positionInMADT += hdr->length;
-		if(positionInMADT >= madt->sdt.Length) break; // End of entries
+			threadDesc->apicId = uint32_t(lapicEntry->apicid);
+			threadDesc->flags = lapicEntry->flags;
+			threadDesc->bsp = lapicEntry->apicid == bspAPICID;
+		}
 	}
 
+	return KRNL_SUCCESS;
+}
+
+KRNL_STATUS APIC::InitializeCurrentLP()
+{
 	// Enable APIC & X2APIC(if supported) in APIC MSR
 
 	uint64_t APICMSR = msr->ReadMSR(MSR_APIC_BASE);
 	APICMSR |= (1ULL << 11);
 
-	if(X2APICSupported) {
-		APICMSR |= (1ULL << 10);
-		printf("[SYSKRNL64] [APIC] [INFO]: X2APIC is supported\r\n");
-	}
+	if(X2APICSupported)	APICMSR |= (1ULL << 10);
 
 	msr->WriteMSR(MSR_APIC_BASE, APICMSR);
 
-	if(X2APICSupported) {
-		if((APICMSR & (1ULL << 10)) == 0) X2APICSupported = false; // APIC doesn't support X2APIC, even though CPUID lists it as supported
-	}
+	if(X2APICSupported) if((APICMSR & (1ULL << 10)) == 0) X2APICSupported = false; // APIC doesn't support X2APIC, even though CPUID lists it as supported
 
-	// Setup LAPIC
+	// Map LAPIC base to virtual memory if it's not mapped yet
 
-	if(!X2APICSupported)
+	if(!X2APICSupported && lapicBaseVirt == 0)
 	{
 		uintptr_t lapicBasePhys = APICMSR & 0xFFFFF000;
 
@@ -139,7 +110,7 @@ bool APIC::Initialize(ACPI_MADT* madt)
 		if(!virtAllocRes)
 		{
 			printf("[SYSKRNL64] [APIC] [ERROR]: Failed to map LAPIC Base to memory\r\n");
-			return false;
+			return KRNL_MEMORY_ALLOC_FAILED;
 		}
 		paging->MapArea(lapicBasePhys, reinterpret_cast<uintptr_t>(virtAllocRes.value()), 1, PTE_PRESENT | PTE_RW | PTE_PCD | PTE_NX);
 		lapicBaseVirt = reinterpret_cast<uintptr_t>(virtAllocRes.value());
@@ -158,8 +129,96 @@ bool APIC::Initialize(ACPI_MADT* madt)
 	WriteLAPIC(0x280, 0);
 	ReadLAPIC(0x280);
 
-	// Setup IOAPICs
+	return KRNL_SUCCESS;
+}
 
+KRNL_STATUS APIC::ParseMADT()
+{
+	uint8_t* buffer = reinterpret_cast<uint8_t*>(madt);
+
+	uintptr_t positionInMADT = sizeof(ACPI_MADT);
+	while(true)
+	{
+		uint8_t* entryPtr = buffer + positionInMADT;
+		ACPI_MADTEntryHeader* hdr = reinterpret_cast<ACPI_MADTEntryHeader*>(entryPtr);
+		switch(hdr->type)
+		{
+			case APIC_MADT_LocalAPIC:
+			{
+				ACPI_MADT_LAPIC* lapic = reinterpret_cast<ACPI_MADT_LAPIC*>(entryPtr);
+				if(lapic->hdr.length < sizeof(ACPI_MADT_LAPIC)) {
+					printf("[SYSKRNL64] [APIC] [ERROR]: Invalid LAPIC Entry length 0x%X at MADT offset 0x%llX\r\n", lapic->hdr.length, positionInMADT);
+					return KRNL_ACPI_INVALID_MADT_ENTRY;
+				}
+				if((lapic->flags & 0x01) == 0) {
+					printf("[SYSKRNL64] [APIC] [WARN]: CPU Core with an APIC CPU ID of %d is disabled\r\n", lapic->apiccpuid);
+					break;
+				}
+				lapicEntries.push_back(*lapic);
+
+				break;
+			}
+			case APIC_MADT_IOAPIC:
+			{
+				size_t currentIoapic = 0;
+				ACPI_MADT_IOAPIC* ioapic = reinterpret_cast<ACPI_MADT_IOAPIC*>(entryPtr);
+				if(ioapic->hdr.length < sizeof(ACPI_MADT_IOAPIC)) {
+					printf("[SYSKRNL64] [APIC] [ERROR]: Invalid IOAPIC entry length 0x%X at MADT offset 0x%llX\r\n", ioapic->hdr.length, positionInMADT);
+					return KRNL_ACPI_INVALID_MADT_ENTRY;
+				}
+				if(ioapic->ioapicAddr == 0 || (ioapic->ioapicAddr & (PAGE_SIZE - 1)) != 0) {
+					printf("[SYSKRNL64] [APIC] [ERROR]: Null or misaligned IOAPIC Physical address 0x%lX at IOAPIC entry at MADT offset 0x%llX\r\n", ioapic->ioapicAddr, positionInMADT);
+					return KRNL_ACPI_INVALID_MADT_ENTRY;
+				}
+				IOAPIC_Desc desc = {*ioapic, 0, 0, 0, 0};
+				ioapicEntries[currentIoapic++] = desc;
+				ioapicEntryCount++;
+				break;
+			}
+			case APIC_MADT_InterruptSourceOverride:
+			{
+				ACPI_MADT_ISO* iso = reinterpret_cast<ACPI_MADT_ISO*>(entryPtr);
+				if(iso->hdr.length < sizeof(ACPI_MADT_ISO)) {
+					printf("[SYSKRNL64] [APIC] [ERROR]: Invalid Interrupt Source Override entry length 0x%X at MADT offset 0x%llX\r\n", iso->hdr.length, positionInMADT);
+					return KRNL_ACPI_INVALID_MADT_ENTRY;
+				}
+				if(iso->IRQSource > 15) {
+					printf("[SYSKRNL64] [APIC] [ERROR]: IRQ Source %d for Interrupt Source Override entry is bigger than 15, ISO entry offset: 0x%llX\r\n", iso->IRQSource, positionInMADT);
+					return KRNL_ACPI_INVALID_MADT_ENTRY;
+				}
+				isoEntries.push_back(*iso);
+				break;
+			}
+			case APIC_MADT_ProcessorLocalX2APIC:
+			{
+				if(!X2APICSupported) {
+					printf("[SYSKRNL64] [APIC] [WARN]: X2APIC Entry at MADT offset 0x%llX present when CPU doesn't support X2APIC\r\n", positionInMADT);
+					break;
+				}
+				ACPI_MADT_X2APIC* x2Apic = reinterpret_cast<ACPI_MADT_X2APIC*>(entryPtr);
+				if(x2Apic->hdr.length < sizeof(ACPI_MADT_X2APIC)) {
+					printf("[SYSKRNL64] [APIC] [ERROR]: Invalid X2APIC length 0x%X at MADT offset 0x%llX\r\n", x2Apic->hdr.length, positionInMADT);
+					return KRNL_ACPI_INVALID_MADT_ENTRY;
+				}
+				if((x2Apic->flags & 0x01) == 0) {
+					printf("[SYSKRNL64] [APIC] [WARN]: CPU Core with an X2APIC CPU ID of %lu is disabled\r\n", x2Apic->apicProcID);
+					break;
+				}
+				x2ApicEntries.push_back(*x2Apic);
+				break;
+			}
+			default: break;
+		}
+
+		positionInMADT += hdr->length;
+		if(positionInMADT >= madt->sdt.Length) break; // End of entries
+	}
+
+	return KRNL_SUCCESS;
+}
+
+KRNL_STATUS APIC::InitializeIOAPIC()
+{
 	for(size_t i = 0; i < ioapicEntryCount; i++)
 	{
 		IOAPIC_Desc& ioapic = ioapicEntries[i];
@@ -167,8 +226,8 @@ bool APIC::Initialize(ACPI_MADT* madt)
 		auto virtAllocRes = virtAlloc->AllocateBlocks(1, VA_NODE_FLAG_MMIO | VA_NODE_FLAG_NO_EXECUTE_ACCESS | VA_NODE_FLAG_USED);
 		if(!virtAllocRes)
 		{
-			printf("[SYSKRNL64] [APIC] [ERROR]: Failed to map IOAPIC %d to memory\r\n", i);
-			return false;
+			printf("[SYSKRNL64] [APIC] [ERROR]: Failed to map IOAPIC %llu to memory\r\n", i);
+			return KRNL_MEMORY_ALLOC_FAILED;
 		}
 		paging->MapArea(ioapic.entry.ioapicAddr, reinterpret_cast<uintptr_t>(virtAllocRes.value()), 1, PTE_PRESENT | PTE_RW | PTE_PCD | PTE_NX);
 		ioapic.virt = reinterpret_cast<uintptr_t>(virtAllocRes.value());
@@ -181,7 +240,7 @@ bool APIC::Initialize(ACPI_MADT* madt)
 		// Read reg 0x00
 		ioapic.id = (ReadIOAPIC(i, 0) >> 24) & 0x0F;
 		
-		printf("[SYSKRNL64] [APIC] [INFO]: Found an IOAPIC Entry %d with IOAPIC ID %d, version %d and maximum redirection entries of %d\r\n", i, ioapic.id, ioapic.version, ioapic.maxRedirs);
+		printf("[SYSKRNL64] [APIC] [INFO]: Found an IOAPIC Entry %llu with IOAPIC ID %u, version %u and maximum redirection entries of %d\r\n", i, ioapic.id, ioapic.version, ioapic.maxRedirs);
 
 		// Disable all IOAPIC Inputs
 
@@ -223,40 +282,7 @@ bool APIC::Initialize(ACPI_MADT* madt)
 		irqToGSI[iso.IRQSource] = iso.globalSysIntr;
 	}
 
-	// Fill in CPU Threads vector
-
-	regs = {};
-	regs = GetCPUIDInfo(0x01, 0x00);
-	uint32_t bspAPICID = (uint32_t(regs.rbx) >> 24) & 0xFF;
-
-	if(X2APICSupported && x2ApicEntries.size() > 0)
-	{
-		cpuThreads.resize(x2ApicEntries.size());
-		for(size_t i = 0; i < x2ApicEntries.size(); i++)
-		{
-			ACPI_MADT_X2APIC* x2ApicEntry = &x2ApicEntries[i];
-			APIC_CPUThreadDesc* threadDesc = &cpuThreads[i];
-
-			threadDesc->apicId = x2ApicEntry->x2apicId;
-			threadDesc->firmwareEnabled = (x2ApicEntry->flags & 1);
-			threadDesc->bsp = x2ApicEntry->x2apicId == bspAPICID;
-		}
-	}
-	else
-	{
-		cpuThreads.resize(lapicEntries.size());
-		for(size_t i = 0; i < lapicEntries.size(); i++)
-		{
-			ACPI_MADT_LAPIC* lapicEntry = &lapicEntries[i];
-			APIC_CPUThreadDesc* threadDesc = &cpuThreads[i];
-
-			threadDesc->apicId = uint32_t(lapicEntry->apicid);
-			threadDesc->firmwareEnabled = (lapicEntry->flags & 1);
-			threadDesc->bsp = lapicEntry->apicid == bspAPICID;
-		}
-	}
-
-	return true;
+	return KRNL_SUCCESS;
 }
 
 uint32_t APIC::ReadLAPIC(uint32_t reg)
@@ -269,6 +295,16 @@ void APIC::WriteLAPIC(uint32_t reg, uint32_t value)
 {
 	if(X2APICSupported) msr->WriteMSR(MSR_X2APIC_BASE + (reg >> 4), value);
 	else *reinterpret_cast<volatile uint32_t*>(lapicBaseVirt + reg) = value;
+}
+
+void APIC::WriteLapicICR(uint32_t apicID, uint32_t lowValue)
+{
+	if(!X2APICSupported)
+	{
+		WriteLAPIC(LAPIC_ICR_HIGH, (apicID << 24));
+		WriteLAPIC(LAPIC_ICR_LOW, lowValue);
+	}
+	else msr->WriteMSR(MSR_X2APIC_BASE + (LAPIC_ICR_LOW >> 4), ((uint64_t)apicID) << 32 | lowValue);
 }
 
 uint32_t APIC::ReadIOAPIC(int index, uint32_t reg)
@@ -448,7 +484,7 @@ bool APIC::BindGSIToVector(uint8_t gsi, uint8_t vector, uint8_t trigger)
 
 	if(e->descIdx >= ioapicEntryCount) return false;
 
-	uint32_t apicID = (ReadLAPIC(0x20) >> 24) & 0xFF;
+	uint32_t apicID = GetCurrentAPICID();
 
 	uint64_t entry = 0;
 
@@ -468,4 +504,10 @@ bool APIC::BindGSIToVector(uint8_t gsi, uint8_t vector, uint8_t trigger)
 	WriteIOAPIC64(e->descIdx, 0x10 + e->pin * 2, entry);
 
 	return true;
+}
+
+uint32_t APIC::GetCurrentAPICID()
+{
+	if(X2APICSupported) return static_cast<uint32_t>(msr->ReadMSR(MSR_X2APIC_BASE + 2));
+	return ReadLAPIC(0x20) >> 24;
 }

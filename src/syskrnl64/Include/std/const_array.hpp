@@ -36,12 +36,56 @@ namespace stdEx
 			for(size_t i = 0; i < _Size; i++) new (&_Data[i]) _T(defval);
 		}
 
-		// For safety disable copy/move ctors/assignments
-		const_array(const const_array&) = delete;
-		const_array& operator=(const const_array&) = delete;
+		const_array(const const_array& other)
+		{
+			if(!other._Lock || other._Size == 0) return;
 
-		const_array(const const_array&&) = delete;
-		const_array& operator=(const const_array&&) = delete;
+			_Size = other._Size;
+			_Data = reinterpret_cast<_T*>(kmalloc(_Size * sizeof(_T)));
+			_Lock = true;
+
+			for(size_t i = 0; i < _Size; i++) new(&_Data[i]) _T(other._Data[i]);
+		}
+
+		const_array& operator=(const const_array& other)
+		{
+			if(!other._Lock || other._Size == 0) return *this;
+			if(_Lock) return *this;
+
+			_Size = other._Size;
+			_Data = reinterpret_cast<_T*>(kmalloc(_Size * sizeof(_T)));
+			_Lock = true;
+
+			for(size_t i = 0; i < _Size; i++) new(&_Data[i]) _T(other._Data[i]);
+
+			return *this;
+		}
+
+		const_array(const_array&& other)
+		{
+			if(!other._Lock || other._Size == 0) return;
+
+			_Size = other._Size;
+			_Data = other._Data;
+			_Lock = other._Lock;
+			
+			other._Size = 0;
+			other._Data = nullptr;
+			other._Lock = false;
+		}
+
+		const_array& operator=(const_array&& other)
+		{
+			if(!other._Lock || other._Size == 0) return *this;
+			if(_Lock) return *this;
+
+			_Size = other._Size;
+			_Data = other._Data;
+			other._Data = nullptr;
+			_Lock = true;
+
+			return *this;
+		}
 
 		_T& operator[](size_t idx) noexcept
 		{
@@ -55,7 +99,7 @@ namespace stdEx
 
 		void init(size_t size) noexcept
 		{
-			if(_Lock) return;
+			if(_Lock || size == 0) return;
 			_Size = size;
 			_Data = reinterpret_cast<_T*>(kmalloc(_Size * sizeof(_T)));
 			_Lock = true;

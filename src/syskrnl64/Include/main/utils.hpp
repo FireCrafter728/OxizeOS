@@ -19,6 +19,4 @@ namespace krnl
 	extern PhysAlloc* physAlloc;
 	extern VirtAlloc* virtAlloc;
 	extern HeapAlloc* heapAlloc;
-
-	extern GDT_Entry* gdtEntries;
 }

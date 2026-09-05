@@ -3,7 +3,9 @@
 #pragma once
 
 #include <main/defs.hpp>
-#include <arch/x86_64/std/stdint.hpp>
+
+#include <mutex>
+
 #include <SysTable.hpp>
 
 namespace krnl
@@ -44,10 +46,14 @@ namespace krnl
 	private:
 		uint64_t* AllocatePage();
 		void FreePage(uintptr_t phys);
+		uintptr_t GetPhysImpl(uintptr_t Virt);
+
 		size_t PageTablesPages;
 		uintptr_t regionStart;
 		uint64_t* PageTables;
 		Paging_FreeTableHeader* freeTableList;
+
+		std::mutex pagingMutex;
 	};
 }
 

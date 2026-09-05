@@ -16,7 +16,7 @@ bool ACPI::Initialize(SystemTable* System)
 	auto rsdpAllocRes = virtAlloc->AllocateBlocks(1, VA_NODE_FLAG_MMIO | VA_NODE_FLAG_NO_EXECUTE_ACCESS | VA_NODE_FLAG_USED);
 	if(!rsdpAllocRes)
 	{
-		printf("[SYSKRNL64] [ACPI] [ERROR]: Failed to allocate virtual memory for RSDP, error code: %d\r\n", rsdpAllocRes.error());
+		printf("[SYSKRNL64] [ACPI] [ERROR]: Failed to allocate virtual memory for RSDP, error code: %lu\r\n", rsdpAllocRes.error());
 		return false;
 	}
 	paging->MapArea(System->ACPI_RSDP, reinterpret_cast<uintptr_t>(rsdpAllocRes.value()), 1, PTE_PRESENT | PTE_RW | PTE_NX);
@@ -60,7 +60,7 @@ bool ACPI::Initialize(SystemTable* System)
 	auto xsdtAllocRes = virtAlloc->AllocateBlocks(1, VA_NODE_FLAG_MMIO | VA_NODE_FLAG_NO_EXECUTE_ACCESS | VA_NODE_FLAG_USED);
 	if(!xsdtAllocRes)
 	{
-		printf("[SYSKRNL64] [ACPI] [ERROR]: Failed to allocate virtual memory for XSDT, error code: %d\r\n", xsdtAllocRes.error());
+		printf("[SYSKRNL64] [ACPI] [ERROR]: Failed to allocate virtual memory for XSDT, error code: %lu\r\n", xsdtAllocRes.error());
 		return false;
 	}
 	paging->MapArea(rsdp->XsdtAddress, reinterpret_cast<uintptr_t>(xsdtAllocRes.value()), 1, PTE_PRESENT | PTE_RW | PTE_NX);
@@ -76,7 +76,7 @@ bool ACPI::Initialize(SystemTable* System)
 		xsdtAllocRes = virtAlloc->AllocateBlocks(mapPages, VA_NODE_FLAG_MMIO | VA_NODE_FLAG_NO_EXECUTE_ACCESS | VA_NODE_FLAG_USED);
 		if(!xsdtAllocRes)
 		{
-			printf("[SYSKRNL64] [ACPI] [ERROR]: Failed to allocate virtual memory for XSDT, error code: %d\r\n", xsdtAllocRes.error());
+			printf("[SYSKRNL64] [ACPI] [ERROR]: Failed to allocate virtual memory for XSDT, error code: %lu\r\n", xsdtAllocRes.error());
 			return false;
 		}
 		paging->MapArea(rsdp->XsdtAddress, reinterpret_cast<uintptr_t>(xsdtAllocRes.value()), mapPages, PTE_PRESENT | PTE_RW | PTE_NX);
@@ -184,7 +184,7 @@ ACPI_SDTHeader* ACPI::GetMappedStructure(uint32_t signature)
 		virtAllocRes = virtAlloc->AllocateBlocks(mapPages, VA_NODE_FLAG_MMIO | VA_NODE_FLAG_NO_EXECUTE_ACCESS | VA_NODE_FLAG_USED);
 		if(!virtAllocRes)
 		{
-			printf("[SYSKRNL64] [ACPI] [ERROR]: Failed to allocate %d blocks for a XSDT Entry\r\n", mapPages);
+			printf("[SYSKRNL64] [ACPI] [ERROR]: Failed to allocate %llu blocks for a XSDT Entry\r\n", mapPages);
 			return nullptr;
 		}
 		paging->MapArea(xsdt->entries[i], reinterpret_cast<uintptr_t>(virtAllocRes.value()), mapPages, PTE_PRESENT | PTE_RW | PTE_NX);
@@ -196,7 +196,7 @@ ACPI_SDTHeader* ACPI::GetMappedStructure(uint32_t signature)
 		uint8_t sum = 0;
 		for(size_t i = 0; i < entry->Length; i++) sum += bytes[i];
 		if(sum != 0) {
-			printf("[SYSKRNL64] [ACPI] [ERROR]: XSDT Entry %d is INVALID!\r\n", i);
+			printf("[SYSKRNL64] [ACPI] [ERROR]: XSDT Entry %llu is INVALID!\r\n", i);
 			return nullptr;
 		}
 

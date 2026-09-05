@@ -6,17 +6,17 @@
 
 using namespace API;
 
-API_STATUS Time::Initialize(krnl::Timer* timer)
+KRNL_STATUS Time::Initialize(krnl::Timer* timer)
 {
 	if(!timer)
 	{
 		printf("[SYSKRNL64] [TIME] [ERROR]: Invalid Initialize() input params\r\n");
-		return API_INVALID_PARAMETER;
+		return KRNL_INVALID_PARAMETER;
 	}
 
 	this->timer = timer;
 
-	return API_SUCCESS;
+	return KRNL_SUCCESS;
 }
 
 FormattedTime Time::GetTimeFormatted()

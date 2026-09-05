@@ -1,0 +1,392 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+
+// A double-ended queue, allowing push / pop operations from both the back and the front
+// This implementation uses a simpler, yet sufficient algorithm of implementing a double ended queue
+
+#pragma once
+
+#include <stdint.h>
+#include <stddef.h>
+#include <stdlib.hpp>
+#include <string.hpp>
+
+#include <type_traits>
+#include <utility>
+#include <algorithm>
+
+namespace std
+{
+	enum class deque_shift_direction
+	{
+		Right = 0,
+		Left = 1,
+	};
+
+	template <typename T> requires((is_copy_constructible_v<T> && is_copy_assignable_v<T> && is_move_constructible_v<T> && is_move_assignable_v<T>) || is_trivially_copyable_v<T>)
+	class deque
+	{
+	public:
+		deque() = default;
+
+		~deque()
+		{
+			destruct_buffer();
+		}
+
+		// copy constructor
+		deque(const deque& other)
+		{
+			if(!other._Data || other._Size == 0)
+			{
+				reset_state();
+				return;
+			}
+
+			_Data = reinterpret_cast<T*>(kmalloc(other._Capacity * sizeof(T)));
+			if(!_Data) return;
+
+			_Capacity = other._Capacity;
+			_Size = other._Size;
+			_firstElementIndex = other._firstElementIndex;
+
+			copy_data(other._Data, _Data, _Size, _firstElementIndex);
+		}
+
+		// move constructor
+		deque(deque&& other)
+		{
+			if(!other._Data)
+			{
+				reset_state();
+				return;
+			}
+
+			_Data = other._Data;
+			_Size = other._Size;
+			_Capacity = other._Capacity;
+			_firstElementIndex = other._firstElementIndex;
+
+			other.reset_state();
+		}
+
+		// copy assignment
+		deque& operator=(const deque& other)
+		{
+			if(this == &other) return *this;
+			if(!other._Data || other._Size == 0)
+			{
+				destruct_buffer();
+				return *this;
+			}			
+			
+			if(!reconstruct_buffer(other._Capacity)) return *this;
+
+			_Size = other._Size;
+			_firstElementIndex = other._firstElementIndex;
+
+			copy_data(other._Data, _Data, _Size, _firstElementIndex);
+
+			return *this;
+		}
+
+		// move assignment
+		deque& operator=(deque&& other)
+		{
+			if(this == &other) return *this;
+
+			destruct_buffer();
+
+			if(!other._Data) return *this;
+
+			_Data = other._Data;
+			_Size = other._Size;
+			_Capacity = other._Capacity;
+			_firstElementIndex = other._firstElementIndex;
+
+			other.reset_state();
+
+			return *this;
+		}
+
+		// various operators
+
+		T& operator[](size_t index)
+		{
+			return _Data[index + _firstElementIndex];
+		}
+
+		const T& operator[](size_t index) const
+		{
+			return _Data[index + _firstElementIndex];
+		}
+
+		// misc
+
+		T& front()
+		{
+			return _Data[_firstElementIndex];
+		}
+
+		const T& front() const
+		{
+			return _Data[_firstElementIndex];
+		}
+
+		T& back()
+		{
+			return _Data[_firstElementIndex + _Size - 1];
+		}
+
+		const T& back() const
+		{
+			return _Data[_firstElementIndex + _Size - 1];
+		}
+
+		bool empty() const
+		{
+			return _Size == 0;
+		}
+
+		size_t size() const
+		{
+			return _Size;
+		}
+
+		// push / pop
+
+		// copy element to buffer front
+		void push_front(const T& element)
+		{
+			// Check if there is any space left in the front
+			if(_firstElementIndex == 0)
+			{
+				if(!expand(deque_shift_direction::Left, 1)) return;
+			}
+
+			// Copy the element to the slot before the original first slot
+
+			if constexpr(is_trivially_copyable_v<T>) _Data[--_firstElementIndex] = element;
+			else new(&_Data[--_firstElementIndex]) T(element);
+			_Size++;
+		}
+
+		// move element to buffer front
+		void push_front(T&& element)
+		{
+			// Check if there is any space left in the front
+			if(_firstElementIndex == 0)
+			{
+				if(!expand(deque_shift_direction::Left, 1)) return;
+			}
+
+			// Move the element to the slot before the original first slot
+
+			if constexpr(is_trivially_copyable_v<T>) _Data[--_firstElementIndex] = std::move(element);
+			else new(&_Data[--_firstElementIndex]) T(std::move(element));
+			_Size++;
+		}
+
+		// copy element to buffer back
+		void push_back(const T& element)
+		{
+			// Check if there is any space left in the back
+			if(_firstElementIndex + _Size >= _Capacity)
+			{
+				if(!expand(deque_shift_direction::Right, 1)) return;
+			}
+
+			// Copy the element to the slot after the last element
+			if constexpr(is_trivially_copyable_v<T>) _Data[_firstElementIndex + _Size++] = element;
+			else new(&_Data[_firstElementIndex + _Size++]) T(element);
+		}
+
+		// move element to buffer back
+		void push_back(T&& element)
+		{
+			// Check if there is any space left in the back
+			if(_firstElementIndex + _Size >= _Capacity)
+			{
+				if(!expand(deque_shift_direction::Right, 1)) return;
+			}
+
+			// Copy the element to the slot after the last element
+			if constexpr(is_trivially_copyable_v<T>) _Data[_firstElementIndex + _Size] = std::move(element);
+			else new(&_Data[_firstElementIndex + _Size]) T(std::move(element));
+			_Size++;
+		}
+
+		// destroy the first element
+		void pop_front()
+		{
+			if constexpr(!is_trivially_destructible_v<T>) _Data[_firstElementIndex].~T();
+			_firstElementIndex++;
+			if(--_Size == 0) _firstElementIndex = 0; // Make sure that if the queue is empty first element index is reset
+		}
+
+		// destroy the last element
+		void pop_back()
+		{
+			if constexpr(!is_trivially_destructible_v<T>) _Data[_firstElementIndex + _Size - 1].~T();
+			_Size--;
+		}
+	private:
+		T* _Data = nullptr;
+		size_t _Capacity = 0, _Size = 0;
+		size_t _firstElementIndex = 0;
+
+		void copy_data(const T* origData, T* newData, size_t size, size_t firstElementIndex)
+		{
+			if constexpr (is_trivially_copyable_v<T>)
+			{
+				// Template is copyable using memcpy, use that
+				memcpy(newData + firstElementIndex, origData + firstElementIndex, size * sizeof(T));
+			}
+			else
+			{
+				// Data must be copied using copy constructors
+				for(size_t i = 0; i < size; i++) new (&newData[i + firstElementIndex]) T(origData[i + firstElementIndex]);
+			}
+		}
+
+		bool shift_data(deque_shift_direction direction, size_t count)
+		{
+			if(count == 0 || _Size == 0) return true;
+			if(count > _Size) return false;
+
+			if((direction == deque_shift_direction::Right && count > _Capacity - _firstElementIndex - _Size) || (direction == deque_shift_direction::Left && _firstElementIndex < count)) return false;
+
+			if constexpr (is_trivially_copyable_v<T>)
+			{
+				if(direction == deque_shift_direction::Right) memmove(_Data + _firstElementIndex + count, _Data + _firstElementIndex, _Size * sizeof(T));
+				else if(direction == deque_shift_direction::Left) memmove(_Data + _firstElementIndex - count, _Data + _firstElementIndex, _Size * sizeof(T));
+			}
+			else
+			{
+				if(direction == deque_shift_direction::Right)
+				{
+					for(size_t i = _Size; i-- > 0;)
+					{
+						T* src = &_Data[_firstElementIndex + i];
+						T* dst = &_Data[_firstElementIndex + i + count];
+
+						if(i + count >= _Size) new (dst) T(std::move(*src));
+						else *dst = std::move(*src);
+					}
+
+					for(size_t i = 0; i < count; i++) _Data[i + _firstElementIndex].~T();
+				}
+				else if(direction == deque_shift_direction::Left)
+				{
+					for(size_t i = 0; i < count; i++) _Data[i + _firstElementIndex].~T();
+					for(size_t i = count; i < _Size; i++) _Data[i + _firstElementIndex - count] = std::move(_Data[i + _firstElementIndex]);
+					for(size_t i = _Size - count; i < _Size; i++) _Data[i + _firstElementIndex].~T();
+				}
+			}
+
+			if(direction == deque_shift_direction::Right) _firstElementIndex += count;
+			else if(direction == deque_shift_direction::Left) _firstElementIndex -= count;
+
+			return true;
+		}
+
+		void destruct_buffer()
+		{
+			if(!_Data) return;
+
+			if constexpr(!is_trivially_destructible_v<T>)
+			{
+				for(size_t i = 0; i < _Size; i++) _Data[i + _firstElementIndex].~T();
+			}
+
+			kfree(_Data);
+
+			reset_state();
+		}
+
+		bool reconstruct_buffer(size_t newCapacity)
+		{
+			T* newData = reinterpret_cast<T*>(kmalloc(newCapacity * sizeof(T)));
+			if(!newData) return false;
+			
+			destruct_buffer();
+
+			_Data = newData;
+			_Capacity = newCapacity;
+
+			return true;
+		}
+
+		void reset_state()
+		{
+			_Data = nullptr;
+			_Size = 0;
+			_Capacity = 0;
+			_firstElementIndex = 0;
+		}
+
+		bool expand(deque_shift_direction direction, size_t extraSizeNeeded)
+		{
+			if(extraSizeNeeded == 0) return true;
+
+			if(direction == deque_shift_direction::Left)
+			{
+				if(_firstElementIndex >= extraSizeNeeded) return true;
+			}
+			else if(direction == deque_shift_direction::Right)
+			{
+				if(_firstElementIndex + _Size + extraSizeNeeded <= _Capacity) return true;
+			}
+
+			// Check if there is enough space to shift the entries instead of relocating them to a bigger buffer
+
+			size_t leftFree = _firstElementIndex, rightFree = _Capacity - (_firstElementIndex + _Size), totalFree = leftFree + rightFree;
+
+			if(totalFree >= extraSizeNeeded)
+			{
+				// Check if rebalancing the free entry counts on both sides is possible
+				size_t requestedFree = (totalFree + 1) >> 1; // If totalFree is odd, make the requested direction have the extra entry
+
+				if(requestedFree >= extraSizeNeeded)
+				{
+					// Rebalancing is possible, so rebalance
+					if(direction == deque_shift_direction::Left) return shift_data(deque_shift_direction::Right, requestedFree - leftFree);
+					else if(direction == deque_shift_direction::Right) return shift_data(deque_shift_direction::Left, requestedFree - rightFree);
+					return false; // Shouldn't normally happen
+				}
+
+				// Rebalancing isn't possible, but there is enough free space to shift the elements to the opposite direction to make space on the requested direction
+
+				if(direction == deque_shift_direction::Left) return shift_data(deque_shift_direction::Right, extraSizeNeeded - leftFree);
+				else if(direction == deque_shift_direction::Right) return shift_data(deque_shift_direction::Left, extraSizeNeeded - rightFree);
+				return false; // Shouldn't normally happen
+			}
+
+			// Not enough space to shift, relocate the buffer to a bigger one
+
+			size_t newSize = std::max(_Capacity + extraSizeNeeded * 2, _Capacity * 2); // Make sure the new buffer is at least twice as big as the last
+			size_t newEntryStart = (newSize - _Size) >> 1; // Use rshift instead of division as it's faster
+
+			T* newBuffer = reinterpret_cast<T*>(kmalloc(newSize * sizeof(T)));
+			if(!newBuffer) return false;
+
+			if constexpr(is_trivially_copyable_v<T>) memcpy(newBuffer + newEntryStart, _Data + _firstElementIndex, _Size * sizeof(T));
+			else
+			{
+				for(size_t i = 0; i < _Size; i++) new (&newBuffer[newEntryStart + i]) T(std::move(_Data[_firstElementIndex + i]));
+			}
+
+			if constexpr(!is_trivially_destructible_v<T>)
+			{
+				for(size_t i = 0; i < _Size; i++) _Data[i + _firstElementIndex].~T();
+			}
+
+			kfree(_Data);
+
+			_Data = newBuffer;
+			_Capacity = newSize;
+			_firstElementIndex = newEntryStart;
+
+			return true;
+		}
+	};
+}

@@ -278,7 +278,7 @@ namespace std
 			_Data[_Size] = '\0';
 		}
 
-		bool empty()
+		bool empty() const
 		{
 			return _Size == 0;
 		}
@@ -512,4 +512,41 @@ namespace std
 	public:
 		static constexpr size_t npos = UINT64_MAX;
 	};
+
+	// Combine operators
+
+	inline string operator+(const string& lhs, const string& rhs)
+	{
+		string result(lhs);
+		result += rhs;
+		return result;
+	}
+
+	inline string operator+(const string& lhs, const char* rhs)
+	{
+		string result(lhs);
+		result += rhs;
+		return result;
+	}
+
+	inline string operator+(const char* lhs, const string& rhs)
+	{
+		string result(lhs);
+		result += rhs;
+		return result;
+	}
+
+	inline string operator+(const string& lhs, char rhs)
+	{
+		string result(lhs);
+		result += rhs;
+		return result;
+	}
+
+	inline string operator+(char lhs, const string& rhs)
+	{
+		string result(1, lhs);
+		result += rhs;
+		return result;
+	}
 }

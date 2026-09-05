@@ -8,9 +8,9 @@
 
 using namespace krnl;
 
-MemoryAllocErrors HeapAlloc::Initialize(Heap_HeapAllocDesc* desc)
+KRNL_STATUS HeapAlloc::Initialize(Heap_HeapAllocDesc* desc)
 {
-	if(!desc || !desc->virtAlloc || !desc->physAlloc) return MMD_INVALID_PARAMETER;
+	if(!desc || !desc->virtAlloc || !desc->physAlloc) return KRNL_INVALID_PARAMETER;
 
 	static_assert(sizeof(Heap_AllocationHeader) % HEAP_ALIGNMENT == 0, "Drivers/MMD/heap.hpp: AllocationHeader must be 16-byte aligned");
 	static_assert(INITIAL_HEAP_SIZE % BLOCK_SIZE == 0, "Drivers/MMD/heap.hpp: INITIAL_HEAP_SIZE must be block-aligned(4096)");
@@ -22,7 +22,7 @@ MemoryAllocErrors HeapAlloc::Initialize(Heap_HeapAllocDesc* desc)
 	auto virtReserveRes = desc->virtAlloc->AllocateBlocks(HEAP_RESERVE_BLOCKS, VA_NODE_FLAG_PHYSICALLY_NOT_BACKED | VA_NODE_FLAG_USED);
 	if(!virtReserveRes)
 	{
-		printf("[SYSKRNL64] [HEAP ALLOC] [ERROR]: Failed to reserve initial kernel heap address space, error code: %d\r\n", virtReserveRes.error());
+		printf("[SYSKRNL64] [HEAP ALLOC] [ERROR]: Failed to reserve initial kernel heap address space, error code: %lu\r\n", virtReserveRes.error());
 		return virtReserveRes.error();
 	}
 	heapVirtBase = reinterpret_cast<uintptr_t>(virtReserveRes.value());
@@ -31,9 +31,9 @@ MemoryAllocErrors HeapAlloc::Initialize(Heap_HeapAllocDesc* desc)
 
 	heapBlocks = BLOCK_COUNT(INITIAL_HEAP_SIZE);
 
-	MemoryAllocErrors physAllocRes = desc->physAlloc->AllocSparseBlocksToContiguousVirtualRange(heapBlocks, heapVirtBase, PTE_PRESENT | PTE_RW);
+	KRNL_STATUS physAllocRes = desc->physAlloc->AllocSparseBlocksToContiguousVirtualRange(heapBlocks, heapVirtBase, PTE_PRESENT | PTE_RW);
 
-	if(physAllocRes != MMD_SUCCESS)
+	if(KRNL_ERROR(physAllocRes))
 	{
 		printf("[SYSKRNL64] [HEAP ALLOC] [ERROR]: Failed to allocate 64KiB for initial kernel heap\r\n");
 		return physAllocRes;
@@ -49,10 +49,16 @@ MemoryAllocErrors HeapAlloc::Initialize(Heap_HeapAllocDesc* desc)
 
 	lastHeader = allocHdr;
 
-	return MMD_SUCCESS;
+	return KRNL_SUCCESS;
 }
 
-std::expected<void*, MemoryAllocErrors> HeapAlloc::AllocateBytes(size_t size)
+std::expected<void*, KRNL_STATUS> HeapAlloc::AllocateBytes(size_t size)
+{
+	std::lock_guard lock(heapMutex);
+	return AllocateBytesImpl(size);
+}
+
+std::expected<void*, KRNL_STATUS> HeapAlloc::AllocateBytesImpl(size_t size)
 {
 	if(size == 0) return nullptr;
 
@@ -66,7 +72,7 @@ std::expected<void*, MemoryAllocErrors> HeapAlloc::AllocateBytes(size_t size)
 		if(reinterpret_cast<uintptr_t>(hdr) + hdr->allocSize >= heapVirtBase + heapBytes) 
 		{
 			printf("[SYSKRNL64] [HEAP ALLOC] [ERROR]: Corrupted heap descriptor(s) data\r\n");    
-			return std::unexpected<MemoryAllocErrors>(MMD_INVALID_STRUCTURE_DATA);
+			return std::unexpected<KRNL_STATUS>(KRNL_CORRUPTED_DATA);
 		}
 		if(!(hdr->flags & HEAP_FLAG_USED))
 		{
@@ -79,12 +85,12 @@ std::expected<void*, MemoryAllocErrors> HeapAlloc::AllocateBytes(size_t size)
 	if(!hdr)
 	{
 		// Expand the heap, then try again
-		MemoryAllocErrors expandRes = ExpandHeap();
-		if(expandRes != MMD_SUCCESS) {
+		KRNL_STATUS expandRes = ExpandHeap();
+		if(KRNL_ERROR(expandRes)) {
 			printf("[SYSKRNL64] [HEAP ALLOC] [ERROR]: Failed to expand the heap\r\n");
-			return std::unexpected<MemoryAllocErrors>(expandRes);
+			return std::unexpected<KRNL_STATUS>(expandRes);
 		}
-		return AllocateBytes(size);
+		return AllocateBytesImpl(size);
 	}
 
 	Heap_AllocationHeader origHdr = *hdr;
@@ -108,15 +114,16 @@ std::expected<void*, MemoryAllocErrors> HeapAlloc::AllocateBytes(size_t size)
 	return reinterpret_cast<void*>(reinterpret_cast<uintptr_t>(hdr) + sizeof(Heap_AllocationHeader));
 }
 
-MemoryAllocErrors HeapAlloc::FreeBytes(void* ptr)
+KRNL_STATUS HeapAlloc::FreeBytes(void* ptr)
 {
-	if(!ptr) return MMD_INVALID_PARAMETER;
+	std::lock_guard lock(heapMutex);
+	if(!ptr) return KRNL_INVALID_PARAMETER;
 
 	uintptr_t addr = reinterpret_cast<uintptr_t>(ptr);
 	Heap_AllocationHeader* header = reinterpret_cast<Heap_AllocationHeader*>(addr - sizeof(Heap_AllocationHeader));
 	
-	if(addr < heapVirtBase + sizeof(Heap_AllocationHeader) || addr > heapVirtBase + heapBlocks * BLOCK_SIZE) return MMD_INVALID_PARAMETER;
-	if(!(header->flags & HEAP_FLAG_USED)) return MMD_INVALID_PARAMETER;
+	if(addr < heapVirtBase + sizeof(Heap_AllocationHeader) || addr > heapVirtBase + heapBlocks * BLOCK_SIZE) return KRNL_INVALID_PARAMETER;
+	if(!(header->flags & HEAP_FLAG_USED)) return KRNL_INVALID_PARAMETER;
 
 	Heap_AllocationHeader* prev = header->prev;
 	Heap_AllocationHeader* next = header->next;
@@ -132,7 +139,7 @@ MemoryAllocErrors HeapAlloc::FreeBytes(void* ptr)
 		header->next = next->next;
 		if(next->next) next->next->prev = header;
 		if(header->next == nullptr) lastHeader = header;
-		return MMD_SUCCESS;
+		return KRNL_SUCCESS;
 	}
 
 	// Check if previous allocation header marks free space
@@ -144,23 +151,23 @@ MemoryAllocErrors HeapAlloc::FreeBytes(void* ptr)
 		prev->next = header->next;
 		if(header->next) header->next->prev = prev;
 		if(prev->next == nullptr) lastHeader = prev;
-		return MMD_SUCCESS;
+		return KRNL_SUCCESS;
 	}
 
 	// Nothing can be combined
 
-	return MMD_SUCCESS;
+	return KRNL_SUCCESS;
 }
 
-MemoryAllocErrors HeapAlloc::ExpandHeap()
+KRNL_STATUS HeapAlloc::ExpandHeap()
 {
 	// Expand the heap
 	size_t newHeapSizeBlocks = heapBlocks * 2;
 
-	if(newHeapSizeBlocks > HEAP_RESERVE_BLOCKS) return MMD_OUT_OF_MEMORY;
+	if(newHeapSizeBlocks > HEAP_RESERVE_BLOCKS) return KRNL_OUT_OF_MEMORY;
 
-	MemoryAllocErrors physAllocRes = desc.physAlloc->AllocSparseBlocksToContiguousVirtualRange(heapBlocks, heapVirtBase + heapBlocks * BLOCK_SIZE, PTE_PRESENT | PTE_RW);
-	if(physAllocRes != MMD_SUCCESS)
+	KRNL_STATUS physAllocRes = desc.physAlloc->AllocSparseBlocksToContiguousVirtualRange(heapBlocks, heapVirtBase + heapBlocks * BLOCK_SIZE, PTE_PRESENT | PTE_RW);
+	if(physAllocRes != KRNL_SUCCESS)
 	{
 		printf("[SYSKRNL64] [HEAP ALLOC] [ERROR]: Failed to allocate extra blocks for the heap\r\n");
 		return physAllocRes;
@@ -173,7 +180,7 @@ MemoryAllocErrors HeapAlloc::ExpandHeap()
 		// Modify the last header
 		lastHeader->allocSize += heapBlocks * BLOCK_SIZE;
 		heapBlocks = newHeapSizeBlocks;
-		return MMD_SUCCESS;
+		return KRNL_SUCCESS;
 	}
 
 	Heap_AllocationHeader* hdr = reinterpret_cast<Heap_AllocationHeader*>(heapVirtBase + heapBlocks * BLOCK_SIZE);
@@ -184,7 +191,7 @@ MemoryAllocErrors HeapAlloc::ExpandHeap()
 	lastHeader->next = hdr;
 	lastHeader = hdr;
 	heapBlocks = newHeapSizeBlocks;
-	return MMD_SUCCESS;
+	return KRNL_SUCCESS;
 }
 
 // Expose functions to stdio.hpp kmalloc, kcalloc & kfree

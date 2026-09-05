@@ -38,7 +38,7 @@ bool PE_Loader::OpenImage(EFI_FILE_PROTOCOL* imageFile, FS::FS* FileSystem, PE_I
 	EFI_STATUS status = FileSystem->Seek(imageFile, 0);
 	if(EFI_ERROR(status))
 	{
-		printf("[BOOTMGR] [PE Loader] [ERROR]: Failed to seek to the start of the image file, error code: 0x%lX\r\n", status);
+		printf("[BOOTMGR] [PE Loader] [ERROR]: Failed to seek to the start of the image file, error code: 0x%llX\r\n", status);
 		return false;
 	}
 
@@ -108,7 +108,7 @@ bool PE_Loader::OpenImage(EFI_FILE_PROTOCOL* imageFile, FS::FS* FileSystem, PE_I
 
 	if(handleOut->peHeader.machine != static_cast<uint16_t>(PE_Machines::AMD64))
 	{
-		printf("[BOOTMGR] [PE Loader] [ERROR]: Unknown executable format %s\r\n", handleOut->peHeader.machine);
+		printf("[BOOTMGR] [PE Loader] [ERROR]: Unknown executable format %s\r\n", getMachineStr(handleOut->peHeader.machine));
 		return false;
 	}
 
@@ -128,7 +128,7 @@ bool PE_Loader::OpenImage(EFI_FILE_PROTOCOL* imageFile, FS::FS* FileSystem, PE_I
 
 	if(handleOut->peHeader.optionalHeaderSize < sizeof(PE_OptionalHeader))
 	{
-		printf("[BOOTMGR] [PE Loader] [ERROR]: Optional header size %llu is below the minimum of %llu", handleOut->peHeader.optionalHeaderSize, sizeof(PE_OptionalHeader));
+		printf("[BOOTMGR] [PE Loader] [ERROR]: Optional header size %u is below the minimum of %llu", handleOut->peHeader.optionalHeaderSize, sizeof(PE_OptionalHeader));
 		return false;
 	}
 
@@ -262,6 +262,8 @@ bool PE_Loader::OpenImage(EFI_FILE_PROTOCOL* imageFile, FS::FS* FileSystem, PE_I
 			printf("[BOOTMGR] [PE Loader] [ERROR]: Failed to read the Section Header %llu, error code: 0x%llX\r\n", i, FileSystem->GetLastStatus());
 			return false;
 		}
+
+		if(sectionHdr.virtualAddress == 0 || (!(sectionHdr.characteristics & PE_SECTION_MEM_EXECUTE) && !(sectionHdr.characteristics & PE_SECTION_MEM_READ) && !(sectionHdr.characteristics & PE_SECTION_MEM_WRITE) && !(sectionHdr.characteristics & PE_SECTION_CNT_CODE) && !(sectionHdr.characteristics & PE_SECTION_CNT_INITIALIZED_DATA) && !(sectionHdr.characteristics & PE_SECTION_CNT_UNINITIALIZED_DATA))) continue;
 
 		uint32_t sectionSize = max(sectionHdr.virtualSize, sectionHdr.sizeOfRawData);
 

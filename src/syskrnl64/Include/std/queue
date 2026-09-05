@@ -1,0 +1,73 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+
+#pragma once
+
+#include <stdint.h>
+#include <stddef.h>
+#include <stdlib.hpp>
+
+#include <deque>
+
+namespace std
+{
+	template <typename T, typename Container = deque<T>>
+	class queue
+	{
+	public:
+		queue() = default;
+
+		queue(const queue&) = default;
+		queue(queue&&) = default;
+
+		queue& operator=(const queue&) = default;
+		queue& operator=(queue&&) = default;
+
+		bool empty() const
+		{
+			return _C.empty();
+		}
+
+		size_t size() const
+		{
+			return _C.size();
+		}
+
+		T& front()
+		{
+			return _C.front();
+		}
+
+		const T& front() const
+		{
+			return _C.front();
+		}
+
+		T& back()
+		{
+			return _C.back();
+		}
+
+		const T& back() const
+		{
+			return _C.back();
+		}
+
+		void push(const T& value)
+		{
+			_C.push_back(value);
+		}
+
+		void push(T&& value)
+		{
+			_C.push_back(std::move(value));
+		}
+
+		void pop()
+		{
+			_C.pop_front();
+		}
+
+	protected:
+		Container _C;
+	};
+}

@@ -35,5 +35,5 @@ export X64_TARGET_CXXFLAGS= -std=c++23 -Wall -Wextra -O2 -ffreestanding -nostdli
 export X64_TARGET_LINKFLAGS=-nostdlib
 export X64_TARGET_LIBS=-lgcc
 export X64_TARGET_ARFLAGS=
-export X64_TARGET_ASMFLAGS= -f win64
+export X64_TARGET_ASMFLAGS= -f win64 -O2
 export X64_TARGET_WINDRES_FLAGS=

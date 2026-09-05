@@ -5,10 +5,8 @@
 #include <main/defs.hpp>
 #include <SysTable.hpp>
 
-#include <arch/x86_64/std/stdint.hpp>
 #include <expected>
 
-#include <arch/x86_64/MMD/memdefs.hpp>
 #include <arch/x86_64/MMD/phys.hpp>
 #include <arch/x86_64/MMD/paging.hpp>
 
@@ -91,18 +89,15 @@ namespace krnl
 	{
 	public:
 		VirtAlloc() = default;
-		MemoryAllocErrors Initialize(VA_VirtAllocDesc* desc);
-		std::expected<void*, MemoryAllocErrors> AllocateBlocks(size_t blockCount, uint64_t flags);
-		MemoryAllocErrors FreeBlocks(void* base);
+		KRNL_STATUS Initialize(VA_VirtAllocDesc* desc);
+		std::expected<void*, KRNL_STATUS> AllocateBlocks(size_t blockCount, uint64_t flags);
+		KRNL_STATUS FreeBlocks(void* base);
 	private:
-		VA_VirtAllocDesc desc;
-		VA_TableEntry* tableArray;
-		VA_Node* rootNode = nullptr;
-		MemoryAllocErrors InsertNode(uintptr_t base, size_t totalBlocks, uint64_t flags, bool skipTresholdCheck = false);
-		std::expected<uintptr_t, MemoryAllocErrors> FindFreeVirtualMemory(size_t blockCount, bool user = false);
+		KRNL_STATUS InsertNode(uintptr_t base, size_t totalBlocks, uint64_t flags, bool skipTresholdCheck = false);
+		std::expected<uintptr_t, KRNL_STATUS> FindFreeVirtualMemory(size_t blockCount, bool user = false);
 		void SetupInitialFreeList(VA_TableEntry* tableEntry);
 		inline bool IsRed(VA_Node* node) { return node && (node->flags & VA_NODE_FLAG_RB_COLOR_RED);}
-		inline bool IsBlack(VA_Node* node) { return !node && !(node->flags & VA_NODE_FLAG_RB_COLOR_RED);}
+		inline bool IsBlack(VA_Node* node) { return !node || !(node->flags & VA_NODE_FLAG_RB_COLOR_RED);}
 		inline void SetRed(VA_Node* node) { node->flags |= VA_NODE_FLAG_RB_COLOR_RED;}
 		inline void SetBlack(VA_Node* node) { node->flags &= ~VA_NODE_FLAG_RB_COLOR_RED;}
 		VA_Node* Min(VA_Node* node);
@@ -111,5 +106,11 @@ namespace krnl
 		void FixDelete(VA_Node* x);
 		void LeftRotate(VA_Node* x);
 		void RightRotate(VA_Node* y);
+
+		VA_VirtAllocDesc desc;
+		VA_TableEntry* tableArray;
+		VA_Node* rootNode = nullptr;
+
+		std::mutex vallocMutex;
 	};
 }

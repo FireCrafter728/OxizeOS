@@ -18,11 +18,10 @@ the kernel
 
 ## Building
 
-1. Make sure you have all the dependencies installed on your system.
-To make sure you have them installed, view the **Dependencies** section of this README.
+1. Make sure you have all the dependencies installed on your system listed in the **Dependencies** section
 
-2. Build the OS components & the raw image by running `make`,
-and optionally the `-s` flag for cleaner output. To run a multi-threaded build, run `./build`
+2. Build the OS components & the raw image by running `make`, optionally with the `-s` flag for cleaner output.
+   To run a multi-threaded build, run `./build`
 
 3. Run `./run` to test the OS(or `./run qemu` to test with **QEMU** instead of **VirtualBox**). Make sure you have
 **Virtual Box** or **qemu** installed with it's tools avaiable in the system `PATH`.
@@ -49,17 +48,13 @@ If you are using **Virtual Box**, some arguments can be provided:
 in the script have changed
 - `delete`: deletes the VM
 
-If you are using **qemu**, you can specify the debug flag to run without kvm, the CPU stopped before execution and a TCP connection exposed trough port :1234 for GDB to attach to
+If you are using **qemu**, you can specify the `debug` flag to run without KVM, the CPU stopped before execution, interrupt logging to `qemu.log` and a TCP connection exposed trough port :1234 for GDB to attach to
 
 ## Others
 
-- This OS is currently in the **Early-Developement** stages, might contain bugs and is
-subject to change. **It might crash, brick your system or damage internal components**
-on real hardware on poorly/not tested at all developement updates/releases. Use it at your own risk.
+- This OS is currently in very early developement stages and probably contains bugs.
 I recommend using it on a **VM**, like **qemu**, **Virtual Box** or **VMware**.
 - This OS is running on **UEFI** and needs a chipset that has **PCIe** support,
-currently **PCI** is not supported
-- This OS might have a lack of drivers, since they mostly are **community-developed**,
-not by the manufacturers.
+**PCI** support is not planned
 - Some build tools are replaced with our own for extra performance, however they are
 not tested extensively

@@ -145,3 +145,27 @@ updated it to use the new **GPT** formatting tool instead of gdisk
 - Refractored the kernel file layout, making it more architecture aware, and separating drivers from APIs
 - Changed the namespace structure from SysKrnl64::`<Driver name>` to krnl::`<Driver name>`_`<object name>`
 - Some other refractoring
+
+## 2026-09-05 1.0.1.0015 Base of Multi-Processing support
+
+- Added standard libraries:
+- - `<mutex>`: serializes access to a function so it would only be executed by one LP at a time
+- - `<atomic>`: atomically manages access to a variable / object between LPs
+- - `<deque>`: a double-ended queue implementation, using a simpler algorithm to provide the needed functionality for `std::queue`
+- - `<queue>`: a FIFO style queue for queueing events to be executed by something
+
+- Added APIs:
+- `HandleMgr`: a handle manager allowing to store various objects in handles with a safe accessing mechanizm
+
+- Added Drivers:
+- `LCPU`: A driver for managing initialization and event queueing to other LPs
+
+- Added Utilities:
+- `<alloc.hpp>`: Containts an utility function for allocating stacks
+
+- Changes:
+- Serialized some drivers that might be used by multiple LPs, such as the Memory Management drivers, handle manager, the LP event queue and the `printf` function
+- Made the BSP also enter the event handler loop, like the other LPs, to implement SMP correctly
+- Made all LPs fully initialize themselves to 64-bit long mode with the needed drivers set up(GDT, IDT, TSS, LPData, etc.)
+- Fixed a bug with the PE Loader in the boot loader where it was doing incorrect verifications on sections not meant to be loaded to memory
+- Made the `KRNL_STATUS` enum become the centralized error code list, instead of having separate ones, for example, `API_STATUS` or `MemoryAllocErrors`

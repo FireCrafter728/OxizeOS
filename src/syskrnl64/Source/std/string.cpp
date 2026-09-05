@@ -82,6 +82,91 @@ void* memcpy(void* dst, const void* src, size_t num)
 	return dst;
 }
 
+void* memmove(void* dst, const void* src, size_t num)
+{
+	uint8_t* u8Dst = reinterpret_cast<uint8_t*>(dst);
+	const uint8_t* u8Src = reinterpret_cast<const uint8_t*>(src);
+
+	if(u8Dst == u8Src || num == 0) return dst;
+
+	if(u8Dst < u8Src || u8Dst >= u8Src + num)
+	{
+		uint8_t bytesToPad = (-reinterpret_cast<uintptr_t>(u8Dst)) & 7;
+		if(bytesToPad > num) bytesToPad = num;
+
+		for(uint8_t pb = 0; pb < bytesToPad; pb++) u8Dst[pb] = u8Src[pb];
+
+		u8Dst += bytesToPad;
+		u8Src += bytesToPad;
+		num -= bytesToPad;
+
+		if(num == 0) return dst;
+
+		// Copy to dest in quad-words for extra performance
+		uint64_t* u64Dst = reinterpret_cast<uint64_t*>(u8Dst);
+		const uint64_t* u64Src = reinterpret_cast<const uint64_t*>(u8Src); // Do not care if src might be misaligned
+
+		uint64_t count64 = num >> 3; // Avoid division as it's slower
+
+		for(uint64_t q = 0; q < count64; q++)u64Dst[q] = u64Src[q];
+
+		// copy the remainder in bytes
+		uint8_t rem = num & 7; // Avoid mod instruction as it's slower
+
+		u8Dst = reinterpret_cast<uint8_t*>(u64Dst + count64);
+		u8Src = reinterpret_cast<const uint8_t*>(u64Src + count64);
+
+		for(uint8_t rb = 0; rb < rem; rb++) u8Dst[rb] = u8Src[rb];
+	}
+	else
+	{
+		u8Dst += num;
+		u8Src += num;
+
+		uint8_t bytesToPad = reinterpret_cast<uintptr_t>(u8Dst) & 7;
+		if(bytesToPad > num) bytesToPad = num;
+
+		for(uint8_t pb = 0; pb < bytesToPad; pb++)
+		{
+			--u8Dst;
+			--u8Src;
+			*u8Dst = *u8Src;
+		}
+
+		num -= bytesToPad;
+
+		if(num == 0) return dst;
+
+		// Copy to dest in quad-words for extra performance
+		uint64_t* u64Dst = reinterpret_cast<uint64_t*>(u8Dst);
+		const uint64_t* u64Src = reinterpret_cast<const uint64_t*>(u8Src); // Do not care if src might be misaligned
+
+		uint64_t count64 = num >> 3; // Avoid division as it's slower
+
+		for(uint64_t q = 0; q < count64; q++) 
+		{
+			--u64Dst;
+			--u64Src;
+			*u64Dst = *u64Src;
+		}
+
+		// copy the remainder in bytes
+		uint8_t rem = num & 7; // Avoid mod instruction as it's slower
+
+		u8Dst = reinterpret_cast<uint8_t*>(u64Dst);
+		u8Src = reinterpret_cast<const uint8_t*>(u64Src);
+
+		for(uint8_t rb = 0; rb < rem; rb++) 
+		{
+			u8Dst--;
+			u8Src--;
+			*u8Dst = *u8Src;
+		}
+	}
+
+	return dst;
+}
+
 size_t strlen(const char* str)
 {
 	size_t len = 0;

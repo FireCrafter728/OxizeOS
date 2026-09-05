@@ -1,11 +1,12 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #include <arch/x86_64/Interrupts/isr.hpp>
-
+#include <arch/x86_64/Interrupts/idt.hpp>
 #include <arch/x86_64/Utility/io.hpp>
+#include <arch/x86_64/MP/lpdata.hpp>
+
 #include <stdio.hpp>
 
-#include <arch/x86_64/Interrupts/idt.hpp>
 
 using namespace krnl;
 
@@ -75,14 +76,18 @@ ASMCALL void ISR_Handler(ISR_InterruptStackFrame* regs)
 
 	// Handler not present, execute integrated handlers
 
+	// Get the LP Index
+	LPSpecificData* lpSpecificData = LPData::GetLPDataForCurrentLP();
+	LPID lpId = lpSpecificData->identity.lpid;
+
 	// integrated handler for exceptions
 	if(intr < 32) {
-		printf("[SYSKRNL64] [ISR] [CRITICAL]: CPU Exception occured(0x%X): %s\r\n", intr, ExceptionDescs[intr]);
-		printf("[SYSKRNL64] [ISR] [CRITICAL]: CPU Exception Errcode: 0x%X, RIP: 0x%X\r\n", regs->errcode, regs->rip);
+		printf("[SYSKRNL64] [ISR] [CRITICAL]: LP %lu Exception occured(0x%X): %s\r\n", lpId, intr, ExceptionDescs[intr]);
+		printf("[SYSKRNL64] [ISR] [CRITICAL]: LP %lu Exception Errcode: 0x%llX, RIP: 0x%llX\r\n", lpId, regs->errcode, regs->rip);
 		HaltSystem();
 	}
 
 	// print a message about an unhandled interrupt
 
-	printf("[SYSKRNL64] [ISR] [WARN]: Unhandled CPU Interrupt 0x%X\r\n", intr);
+	printf("[SYSKRNL64] [ISR] [WARN]: Unhandled LP %lu Interrupt 0x%X\r\n", lpId, intr);
 }

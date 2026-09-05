@@ -5,7 +5,7 @@
 #include <arch/x86_64/ACPI/acpi.hpp>
 
 #include <main/defs.hpp>
-#include <arch/x86_64/std/stdint.hpp>
+
 #include <const_array.hpp>
 #include <vector>
 
@@ -54,6 +54,20 @@ namespace krnl
 
 	constexpr uint64_t IOAPIC_DELMODE_FIXED  = (0ULL << 8);
 
+	constexpr uint32_t LAPIC_ICR_LOW = 0x300;
+	constexpr uint32_t LAPIC_ICR_HIGH = 0x310;
+
+	constexpr uint32_t LAPIC_ICR_DELIVERY_FIXED = 0b000 << 8;
+	constexpr uint32_t LAPIC_ICR_DELIVERY_LOWEST = 0b001 << 8;
+	constexpr uint32_t LAPIC_ICR_DELIVERY_SMI = 0b010 << 8;
+	constexpr uint32_t LAPIC_ICR_DELIVERY_NMI = 0b100 << 8;
+	constexpr uint32_t LAPIC_ICR_DELIVERY_INIT = 0b101 << 8;
+	constexpr uint32_t LAPIC_ICR_DELIVERY_SIPI = 0b110 << 8;
+
+	constexpr uint32_t LAPIC_ICR_DELIVERY_STATUS = 1 << 12;
+	constexpr uint32_t LAPIC_ICR_LEVEL_ASSERT = 1 << 14;
+	constexpr uint32_t LAPIC_ICR_TRIGGER_LEVEL = 1 << 15;
+
 	struct IOAPIC_Desc
 	{
 		ACPI_MADT_IOAPIC entry;
@@ -71,7 +85,8 @@ namespace krnl
 	struct APIC_CPUThreadDesc
 	{
 		uint32_t apicId;
-		bool firmwareEnabled, bsp;
+		uint32_t flags;
+		bool bsp;
 	};
 
 	enum IOAPIC_TriggerMode : uint8_t
@@ -88,18 +103,28 @@ namespace krnl
 	class APIC
 	{
 	public:
-		bool Initialize(ACPI_MADT* madt);
-		void SendEOI();
-		inline std::vector<APIC_CPUThreadDesc> getCPUThreads() { return cpuThreads; }
+		KRNL_STATUS Initialize(ACPI_MADT* madt);
+		KRNL_STATUS InitializeCurrentLP();
+		
 		uint32_t ReadLAPIC(uint32_t reg);
 		void WriteLAPIC(uint32_t reg, uint32_t value);
+		void WriteLapicICR(uint32_t apicID, uint32_t lowValue);
+		
 		std::pair<size_t, uint8_t> AllocateGSI(uint8_t trigger);
 		uint8_t AllocateSpecificGSI(uint8_t requestedGSI, uint8_t trigger);
+		
+		void SendEOI();
+		inline std::vector<APIC_CPUThreadDesc> getCPUThreads() { return cpuThreads; }
+		uint32_t GetCurrentAPICID();
 	private:
+		KRNL_STATUS ParseMADT();
+		KRNL_STATUS InitializeIOAPIC();
+
 		uint32_t ReadIOAPIC(int index, uint32_t reg);
 		void WriteIOAPIC(int index, uint32_t reg, uint32_t value);
 		uint64_t ReadIOAPIC64(int index, uint32_t reg);
 		void WriteIOAPIC64(int index, uint32_t reg, uint64_t value);
+
 		APIC_GSIEntry ResolveGSI(uint32_t gsi);
 		uint64_t BuildPolarityTrigger(uint16_t flags);
 		void InitializeIRQ(uint8_t irq);

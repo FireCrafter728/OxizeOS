@@ -3,18 +3,12 @@
 #pragma once
 
 #include <main/defs.hpp>
-#include <arch/x86_64/std/stdint.hpp>
-#include <arch/x86_64/std/stddef.hpp>
 
 extern const uint16_t GDT_64BIT_RING0_CODESEG;
 extern const uint16_t GDT_64BIT_RING0_DATASEG;
 extern const uint16_t GDT_64BIT_RING3_CODESEG;
 extern const uint16_t GDT_64BIT_RING3_DATASEG;
-
-extern const uint16_t GDT_32BIT_RING0_CODESEG;
-extern const uint16_t GDT_32BIT_RING0_DATASEG;
-extern const uint16_t GDT_32BIT_RING3_CODESEG;
-extern const uint16_t GDT_32BIT_RING3_DATASEG;
+extern const uint16_t GDT_TSS_DESC_OFFSET;
 
 namespace krnl
 {

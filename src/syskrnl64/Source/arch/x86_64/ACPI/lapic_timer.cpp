@@ -55,7 +55,7 @@ bool LAPIC_Timer::InitCPU(LPID cpuID)
 {
 	if(cpuID >= cpuDescs.size())
 	{
-		printf("[SYSKRNL64] [LAPIC TIMER] [ERROR]: LP ID %u out of range for a maximum of %u in LAPIC_Timer::InitCPU(LPID cpuID)\r\n", cpuID, cpuDescs.size());
+		printf("[SYSKRNL64] [LAPIC TIMER] [ERROR]: LP ID %lu out of range for a maximum of %llu in LAPIC_Timer::InitCPU(LPID cpuID)\r\n", cpuID, cpuDescs.size());
 		return false;
 	}
 
@@ -96,7 +96,7 @@ bool LAPIC_Timer::Calibrate(LPID cpuID, uint64_t frequency)
 {
 	if(cpuID >= cpuDescs.size())
 	{
-		printf("[SYSKRNL64] [LAPIC TIMER] [ERROR]: LP ID %u out of range for a maximum of %u in LAPIC_Timer::Calibrate(LPID cpuID, uint64_t frequency)\r\n", cpuID, cpuDescs.size());
+		printf("[SYSKRNL64] [LAPIC TIMER] [ERROR]: LP ID %lu out of range for a maximum of %llu in LAPIC_Timer::Calibrate(LPID cpuID, uint64_t frequency)\r\n", cpuID, cpuDescs.size());
 		return false;
 	}
 
@@ -111,7 +111,7 @@ bool LAPIC_Timer::SetMode(LPID cpuID, LT_Mode mode)
 {
 	if(cpuID >= cpuDescs.size())
 	{
-		printf("[SYSKRNL64] [LAPIC TIMER] [ERROR]: LP ID %u out of range for a maximum of %u in LAPIC_Timer::SetMode(LPID cpuID, LT_Mode mode)\r\n", cpuID, cpuDescs.size());
+		printf("[SYSKRNL64] [LAPIC TIMER] [ERROR]: LP ID %lu out of range for a maximum of %llu in LAPIC_Timer::SetMode(LPID cpuID, LT_Mode mode)\r\n", cpuID, cpuDescs.size());
 		return false;
 	}
 
@@ -150,7 +150,7 @@ bool LAPIC_Timer::SetIntervalNS(LPID cpuID, uint64_t ns)
 {
 	if(cpuID >= cpuDescs.size())
 	{
-		printf("[SYSKRNL64] [LAPIC TIMER] [ERROR]: LP ID %u out of range for a maximum of %u in LAPIC_Timer::SetIntervalMS(LPID cpuID, uint64_t nanoseconds)\r\n", cpuID, cpuDescs.size());
+		printf("[SYSKRNL64] [LAPIC TIMER] [ERROR]: LP ID %lu out of range for a maximum of %llu in LAPIC_Timer::SetIntervalMS(LPID cpuID, uint64_t nanoseconds)\r\n", cpuID, cpuDescs.size());
 		return false;
 	}
 
@@ -158,7 +158,7 @@ bool LAPIC_Timer::SetIntervalNS(LPID cpuID, uint64_t ns)
 
 	if(desc->currentMode == LT_Mode::None)
 	{
-		printf("[SYSKRNL64] [LAPIC TIMER] [ERROR]: Cannot set the LP %d LAPIC Timer interval without a configured mode\r\n", cpuID);
+		printf("[SYSKRNL64] [LAPIC TIMER] [ERROR]: Cannot set the LP %lu LAPIC Timer interval without a configured mode\r\n", cpuID);
 		return false; 
 	}
 
@@ -167,7 +167,7 @@ bool LAPIC_Timer::SetIntervalNS(LPID cpuID, uint64_t ns)
 
 	if(desc->frequency == 0) 
 	{
-		printf("[SYSKRNL64] [LAPIC TIMER] [ERROR]: Cannot set the interval for the LP %d LAPIC Timer when the timer is not calibrated\r\n", cpuID);
+		printf("[SYSKRNL64] [LAPIC TIMER] [ERROR]: Cannot set the interval for the LP %lu LAPIC Timer when the timer is not calibrated\r\n", cpuID);
 		return false;
 	}
 
@@ -189,7 +189,7 @@ bool LAPIC_Timer::SetEvent(LPID cpuID, TimerEventHandler handler)
 {
 	if(cpuID >= cpuDescs.size())
 	{
-		printf("[SYSKRNL64] [LAPIC TIMER] [ERROR]: LP ID %u out of range for a maximum of %u in LAPIC_Timer::SetEvent(LPID cpuID, TimerEventHandler handler)\r\n", cpuID, cpuDescs.size());
+		printf("[SYSKRNL64] [LAPIC TIMER] [ERROR]: LP ID %lu out of range for a maximum of %llu in LAPIC_Timer::SetEvent(LPID cpuID, TimerEventHandler handler)\r\n", cpuID, cpuDescs.size());
 		return false;
 	}
 
@@ -197,7 +197,7 @@ bool LAPIC_Timer::SetEvent(LPID cpuID, TimerEventHandler handler)
 
 	if(desc->currentMode == LT_Mode::None)
 	{
-		printf("[SYSKRNL64] [LAPIC TIMER] [ERROR]: Cannot set the LP %d LAPIC Timer Event without a configured mode\r\n", cpuID);
+		printf("[SYSKRNL64] [LAPIC TIMER] [ERROR]: Cannot set the LP %lu LAPIC Timer Event without a configured mode\r\n", cpuID);
 		return false;
 	}
 
@@ -210,7 +210,7 @@ uint32_t LAPIC_Timer::GetCounterValue(LPID cpuID)
 {
 	if(cpuID >= cpuDescs.size())
 	{
-		printf("[SYSKRNL64] [LAPIC TIMER] [ERROR]: LP ID %u out of range for a maximum of %u in LAPIC_Timer::GetCounterValue(LPID cpuID)\r\n", cpuID, cpuDescs.size());
+		printf("[SYSKRNL64] [LAPIC TIMER] [ERROR]: LP ID %lu out of range for a maximum of %llu in LAPIC_Timer::GetCounterValue(LPID cpuID)\r\n", cpuID, cpuDescs.size());
 		return 0;
 	}
 
@@ -221,7 +221,7 @@ bool LAPIC_Timer::Start(LPID cpuID, uint64_t initialNS)
 {
 	if(cpuID >= cpuDescs.size())
 	{
-		printf("[SYSKRNL64] [LAPIC TIMER] [ERROR]: LP ID %u out of range for a maximum of %u in LAPIC_Timer::Start(LPID cpuID, uint64_t initialNS)\r\n", cpuID, cpuDescs.size());
+		printf("[SYSKRNL64] [LAPIC TIMER] [ERROR]: LP ID %lu out of range for a maximum of %llu in LAPIC_Timer::Start(LPID cpuID, uint64_t initialNS)\r\n", cpuID, cpuDescs.size());
 		return false;
 	}
 
@@ -229,7 +229,7 @@ bool LAPIC_Timer::Start(LPID cpuID, uint64_t initialNS)
 
 	if(desc->currentMode == LT_Mode::None)
 	{
-		printf("[SYSKRNL64] [LAPIC_TIMER] [ERROR]: Cannot start a LP %d LAPIC Timer without a configured mode\r\n", cpuID);
+		printf("[SYSKRNL64] [LAPIC_TIMER] [ERROR]: Cannot start a LP %lu LAPIC Timer without a configured mode\r\n", cpuID);
 		return false;
 	}
 
@@ -287,7 +287,7 @@ bool LAPIC_Timer::Stop(LPID cpuID)
 {
 	if(cpuID >= cpuDescs.size())
 	{
-		printf("[SYSKRNL64] [LAPIC TIMER] [ERROR]: LP ID %u out of range for a maximum of %u in LAPIC_Timer::Stop(LPID cpuID)\r\n", cpuID, cpuDescs.size());
+		printf("[SYSKRNL64] [LAPIC TIMER] [ERROR]: LP ID %lu out of range for a maximum of %llu in LAPIC_Timer::Stop(LPID cpuID)\r\n", cpuID, cpuDescs.size());
 		return false;
 	}
 
@@ -295,7 +295,7 @@ bool LAPIC_Timer::Stop(LPID cpuID)
 
 	if(desc->currentMode == LT_Mode::None)
 	{
-		printf("[SYSKRNL64] [LAPIC_TIMER] [ERROR]: Cannot stop a LP %d LAPIC Timer without a configured mode\r\n", cpuID);
+		printf("[SYSKRNL64] [LAPIC_TIMER] [ERROR]: Cannot stop a LP %lu LAPIC Timer without a configured mode\r\n", cpuID);
 		return false;
 	}
 

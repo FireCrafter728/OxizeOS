@@ -68,7 +68,7 @@ bool PCIe::GetDeviceInfo(uint8_t bus, uint8_t device, PCIe_DeviceInfo* infoOut)
 	auto allocRes = virtAlloc->AllocateBlocks(1, VA_NODE_FLAG_MMIO | VA_NODE_FLAG_NO_EXECUTE_ACCESS | VA_NODE_FLAG_USED);
 
 	if(!allocRes) {
-		printf("[SYSKRNL64] [PCIe] [ERROR]: Failed to allocate memory for PCIe Config Block, error code: %d\r\n", allocRes.error());
+		printf("[SYSKRNL64] [PCIe] [ERROR]: Failed to allocate memory for PCIe Config Block, error code: %lu\r\n", allocRes.error());
 		return false;
 	}
 

@@ -186,15 +186,50 @@ WRMSR:
 	wrmsr
 	ret
 
-; PauseCurrentCore
+; SuspendCurrentCore
 ;
 ; Input: None
 ;
 ; Output: None
 ;
 ; Halts the current core until an interrupt occurs
-global PauseCurrentCore
-PauseCurrentCore:
+global SuspendCurrentCore
+SuspendCurrentCore:
 	sti
 	hlt
+	ret
+
+; GetCR3
+;
+; Input: None
+;
+; Output:
+; RAX: CR3 register value
+;
+; Returns the CR3 register value
+global GetCR3
+GetCR3:
+	mov rax, cr3
+	ret
+
+; GetCurrentLPSpecificData()
+;
+; Input: None
+;
+; Output:
+; RAX: address of the LP Specific Data ptr
+;
+; Returns the current LP Specific data ptr
+global GetCurrentLPSpecificData
+GetCurrentLPSpecificData:
+	mov rcx, 0xC0000101
+	call RDMSR
+	cmp rax, 0
+	jz .no_gs
+
+	mov rax, [gs:0]
+	ret
+
+.no_gs:
+	xor rax, rax
 	ret

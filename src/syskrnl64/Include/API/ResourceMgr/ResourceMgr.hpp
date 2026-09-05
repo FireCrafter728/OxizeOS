@@ -2,10 +2,8 @@
 
 #pragma once
 
-#include <API/Core/API.hpp>
-
 #include <main/defs.hpp>
-#include <arch/x86_64/std/stdint.hpp>
+
 #include <string>
 #include <expected>
 #include <vector>
@@ -57,10 +55,10 @@ namespace API
 	class ResourceMgr
 	{
 	public:
-		API_STATUS Initialize(SystemTable* System);
+		KRNL_STATUS Initialize(SystemTable* System);
 
-		std::expected<RMgr_ResourceDesc*, API_STATUS> GetResourceByID(uint32_t resourceID, RMgr_ResTypes type);
-		std::expected<RMgr_ResourceDesc*, API_STATUS> GetResourceByName(const std::string& resourceName, RMgr_ResTypes type);
+		std::expected<RMgr_ResourceDesc*, KRNL_STATUS> GetResourceByID(uint32_t resourceID, RMgr_ResTypes type);
+		std::expected<RMgr_ResourceDesc*, KRNL_STATUS> GetResourceByName(const std::string& resourceName, RMgr_ResTypes type);
 	private:
 		SystemTable* System;
 		std::vector<RMgr_ResourceDesc> resources;

@@ -3,7 +3,6 @@
 #pragma once
 
 #include <main/defs.hpp>
-#include <arch/x86_64/std/stdint.hpp>
 
 namespace krnl
 {
@@ -24,7 +23,10 @@ namespace krnl
 	// ISR 0x81: Reserved for the LAPIC Timer
 	constexpr uint8_t ISR_LAPIC_TIMER = 0x81;
 
-	// ISRs 176-255(0xB0-0xFE): Reserved for MSI/MSI-X interrupts
+	// ISRs 176-239(0xB0-0xEF): Reserved for MSI/MSI-X interrupts
+
+	// ISR 240(0xF0): LP Wakeup interrupt handler
+	constexpr uint8_t ISR_LP_WAKEUP = 0xF0;
 
 	// ISR 255(0xFF): Spurious interrupt handler
 	constexpr uint8_t ISR_SVR = 0xFF;

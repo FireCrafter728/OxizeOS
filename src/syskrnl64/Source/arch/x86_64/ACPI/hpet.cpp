@@ -29,7 +29,7 @@ bool HPET_Timer::Initialize(HPET_Device* device)
 	auto regAllocRes = virtAlloc->AllocateBlocks(1, VA_NODE_FLAG_USED | VA_NODE_FLAG_MMIO | VA_NODE_FLAG_NO_EXECUTE_ACCESS);
 	if(!regAllocRes)
 	{
-		printf("[SYSKRNL64] [HPET] [ERROR]: Failed to allocate virtual memory for HPET Registers, error code: %u\r\n", regAllocRes.error());
+		printf("[SYSKRNL64] [HPET] [ERROR]: Failed to allocate virtual memory for HPET Registers, error code: %lu\r\n", regAllocRes.error());
 		return false;
 	}
 
@@ -38,7 +38,7 @@ bool HPET_Timer::Initialize(HPET_Device* device)
 
 	// Parse the general Capabilities and ID register
 
-	printf("[SYSKRNL64] [HPET] [INFO]: Initializing HPET Device, revision: %u\r\n", (device->regs->generalCapAndID & HPET_CAP_REVISION_ID_MASK));
+	printf("[SYSKRNL64] [HPET] [INFO]: Initializing HPET Device, revision: %llu\r\n", (device->regs->generalCapAndID & HPET_CAP_REVISION_ID_MASK));
 
 	device->timerCount = ((device->regs->generalCapAndID & HPET_CAP_TIMER_COUNT_MASK) >> HPET_CAP_TIMER_COUNT_SHIFT) + 1;
 
@@ -66,7 +66,7 @@ bool HPET_Timer::Initialize(HPET_Device* device)
 		return false;
 	}
 
-	printf("[SYSKRNL64] [HPET] [INFO]: HPET Device specs: vendor ID: 0x%X, mode: %s, timer count: %u, frequency: %s\r\n", device->vendorID, device->is64bitCapable ? "64-bit" : "32-bit", device->timerCount, strBuffer);
+	printf("[SYSKRNL64] [HPET] [INFO]: HPET Device specs: vendor ID: 0x%X, mode: %s, timer count: %llu, frequency: %s\r\n", device->vendorID, device->is64bitCapable ? "64-bit" : "32-bit", device->timerCount, strBuffer);
 
 	// Temporarily disable the HPET device
 

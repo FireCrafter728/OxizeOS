@@ -2,8 +2,6 @@
 
 #include <arch/x86_64/Interrupts/gdt.hpp>
 
-#include <arch/x86_64/std/stddef.hpp>
-
 using namespace krnl;
 
 ASMCALL void GDT_Load(GDT_Desc* desc, uint16_t newCs, uint16_t newDs);

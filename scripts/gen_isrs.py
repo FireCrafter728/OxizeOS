@@ -61,9 +61,15 @@ f.write("section .code\n\n")
 
 for i in range(256):
 	if i in errcode_isr_indices:
-		f.write(f"ISR_ERRCODE {i}\n")
+		if i in ist_indices:
+			f.write(f"ISR_ERRCODE_WITH_IST {i}\n")
+		else:
+			f.write(f"ISR_ERRCODE {i}\n")
 	else:
-		f.write(f"ISR_NOERRCODE {i}\n")
+		if i in ist_indices:
+			f.write(f"ISR_NOERRCODE_WITH_IST {i}\n")
+		else:
+			f.write(f"ISR_NOERRCODE {i}\n")
 
 f.close()
 gen_isrs_asm.close()

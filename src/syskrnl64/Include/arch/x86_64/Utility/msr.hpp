@@ -3,7 +3,6 @@
 #pragma once
 
 #include <main/defs.hpp>
-#include <arch/x86_64/std/stdint.hpp>
 
 #define MSR_APIC_BASE 0x1B
 #define MSR_X2APIC_BASE 0x800

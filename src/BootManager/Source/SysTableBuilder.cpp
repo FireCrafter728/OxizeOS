@@ -19,7 +19,7 @@ SystemTable* SysTable::BuildSystemTable(size_t SysKrnl64PageCount, EFI_SYSTEM_TA
 	efiMemmap = nullptr;
 	uint64_t memmapSize = 0, mapKey;
 	size_t prevAllocSize = 0;
-	uint32_t descVersion;
+	UINT32 descVersion;
 	
 	lastStatus = gSystem->BootServices->GetMemoryMap(&memmapSize, efiMemmap, &mapKey, &entrySize, &descVersion);
 	if(lastStatus != EFI_BUFFER_TOO_SMALL) return nullptr;
@@ -78,7 +78,7 @@ SystemTable* SysTable::BuildSystemTable(size_t SysKrnl64PageCount, EFI_SYSTEM_TA
 	// The page must be below the 1MiB, as SMP Thread bring up starts in the 16-bit real mode without the BIOS,
 	// And the page will contain code to bring the SMP thread into 64-bit long mode, enable paging, setup GDT, TR, IDT and the stack
 
-	EFI_PHYSICAL_ADDRESS bringupPageLimit = 0xFFFFFF;
+	EFI_PHYSICAL_ADDRESS bringupPageLimit = 0xFF000;
 	lastStatus = gSystem->BootServices->AllocatePages(AllocateMaxAddress, EfiLoaderData, 1, &bringupPageLimit);
 	if(EFI_ERROR(lastStatus))
 	{

@@ -8,12 +8,12 @@
 
 using namespace krnl;
 
-MemoryAllocErrors VirtAlloc::Initialize(VA_VirtAllocDesc* desc)
+KRNL_STATUS VirtAlloc::Initialize(VA_VirtAllocDesc* desc)
 {
 	if(!desc || !desc->System || !desc->physAlloc) 
 	{
 		printf("[SYSKRNL64] [VIRT ALLOC] [ERROR]: Invalid System table ptr specified\r\n");
-		return MMD_INVALID_PARAMETER;
+		return KRNL_INVALID_PARAMETER;
 	}
 
 	this->desc = *desc;
@@ -23,8 +23,8 @@ MemoryAllocErrors VirtAlloc::Initialize(VA_VirtAllocDesc* desc)
 	size_t tableArrayBlocks = BLOCK_COUNT(VA_TOTAL_TABLES * sizeof(VA_TableEntry));
 	uintptr_t tableArrayVirt = MapAddr + desc->System->memLayout.KrnlMemRegionSize;
 
-	MemoryAllocErrors arrAllocRes = desc->physAlloc->AllocSparseBlocksToContiguousVirtualRange(tableArrayBlocks, tableArrayVirt, PTE_PRESENT | PTE_RW | PTE_NX);
-	if(arrAllocRes != MMD_SUCCESS)
+	KRNL_STATUS arrAllocRes = desc->physAlloc->AllocSparseBlocksToContiguousVirtualRange(tableArrayBlocks, tableArrayVirt, PTE_PRESENT | PTE_RW | PTE_NX);
+	if(arrAllocRes != KRNL_SUCCESS)
 	{
 		printf("[SYSKRNL64] [VIRT ALLOC] [ERROR]: Failed to allocate %llu blocks for VA Table descriptor array\r\n", tableArrayBlocks);
 		return arrAllocRes;
@@ -39,8 +39,8 @@ MemoryAllocErrors VirtAlloc::Initialize(VA_VirtAllocDesc* desc)
 	size_t tableBlocks = BLOCK_COUNT(sizeof(VA_Table));
 	uintptr_t initTableVirt = reinterpret_cast<uintptr_t>(tableArray) + tableArrayBlocks * BLOCK_SIZE;
 
-	MemoryAllocErrors initTableAllocRes = desc->physAlloc->AllocSparseBlocksToContiguousVirtualRange(tableBlocks, initTableVirt, PTE_PRESENT | PTE_RW | PTE_NX);
-	if(initTableAllocRes != MMD_SUCCESS)
+	KRNL_STATUS initTableAllocRes = desc->physAlloc->AllocSparseBlocksToContiguousVirtualRange(tableBlocks, initTableVirt, PTE_PRESENT | PTE_RW | PTE_NX);
+	if(initTableAllocRes != KRNL_SUCCESS)
 	{
 		printf("[SYSKRNL64] [VIRT ALLOC] [ERROR]: Failed to allocate %llu blocks for initial VA Table\r\n", tableBlocks);
 		return initTableAllocRes;
@@ -74,12 +74,12 @@ MemoryAllocErrors VirtAlloc::Initialize(VA_VirtAllocDesc* desc)
 		if(region->guardPage) InsertNode(region->virt + region->totalPages * PAGE_SIZE, 1, VA_NODE_FLAG_USED | VA_NODE_FLAG_FENCE);
 	}
 
-	return MMD_SUCCESS;
+	return KRNL_SUCCESS;
 }
 
-MemoryAllocErrors VirtAlloc::InsertNode(uintptr_t base, size_t totalBlocks, uint64_t flags, bool skipTresholdCheck)
+KRNL_STATUS VirtAlloc::InsertNode(uintptr_t base, size_t totalBlocks, uint64_t flags, bool skipTresholdCheck)
 {
-	if(!base || totalBlocks == 0) return MMD_INVALID_PARAMETER;
+	if(!base || totalBlocks == 0) return KRNL_INVALID_PARAMETER;
 
 	VA_Node* node = nullptr;
 
@@ -91,7 +91,7 @@ MemoryAllocErrors VirtAlloc::InsertNode(uintptr_t base, size_t totalBlocks, uint
 		if(!entry->tablePtr) 
 		{
 			// All tables checked, no free slots left
-			return MMD_OUT_OF_MEMORY;
+			return KRNL_OUT_OF_MEMORY;
 		}
 
 		if(entry->freeNodeCount == 0 || !entry->nextFreeNodePtr) continue;
@@ -113,7 +113,7 @@ MemoryAllocErrors VirtAlloc::InsertNode(uintptr_t base, size_t totalBlocks, uint
 		break;
 	}
 
-	if(!node) return MMD_OUT_OF_MEMORY;
+	if(!node) return KRNL_OUT_OF_MEMORY;
 
 	// Manage Red-Black structures inside the node
 
@@ -254,7 +254,7 @@ MemoryAllocErrors VirtAlloc::InsertNode(uintptr_t base, size_t totalBlocks, uint
 	SetBlack(rootNode); // Root must always be black
 
 
-	if(skipTresholdCheck) return MMD_SUCCESS;
+	if(skipTresholdCheck) return KRNL_SUCCESS;
 
 
 	// Check if total free nodes accross all tables is below a treshold
@@ -288,8 +288,8 @@ MemoryAllocErrors VirtAlloc::InsertNode(uintptr_t base, size_t totalBlocks, uint
 			return virtSearchRes.error();
 		}
 
-		MemoryAllocErrors tableAllocRes = desc.physAlloc->AllocSparseBlocksToContiguousVirtualRange(tableBlocks, virtSearchRes.value(), PTE_PRESENT | PTE_RW | PTE_NX);
-		if(tableAllocRes != MMD_SUCCESS)
+		KRNL_STATUS tableAllocRes = desc.physAlloc->AllocSparseBlocksToContiguousVirtualRange(tableBlocks, virtSearchRes.value(), PTE_PRESENT | PTE_RW | PTE_NX);
+		if(tableAllocRes != KRNL_SUCCESS)
 		{
 			printf("[SYSKRNL64] [VIRT ALLOC] [ERROR]: Failed to allocate %llu blocks for an expasion VA Table\r\n", tableBlocks);
 			return tableAllocRes;
@@ -308,7 +308,7 @@ MemoryAllocErrors VirtAlloc::InsertNode(uintptr_t base, size_t totalBlocks, uint
 		InsertNode(reinterpret_cast<uintptr_t>(newTableEntry->tablePtr), tableBlocks, VA_NODE_FLAG_USED | VA_NODE_FLAG_NO_EXECUTE_ACCESS | VA_NODE_FLAG_EXPANSION_TABLE, true);
 	}
 
-	return MMD_SUCCESS;
+	return KRNL_SUCCESS;
 }
 
 void VirtAlloc::SetupInitialFreeList(VA_TableEntry* tableEntry)
@@ -326,8 +326,9 @@ void VirtAlloc::SetupInitialFreeList(VA_TableEntry* tableEntry)
 	fNode->nextNode = nullptr;
 }
 
-std::expected<void*, MemoryAllocErrors> VirtAlloc::AllocateBlocks(size_t blockCount, uint64_t flags)
+std::expected<void*, KRNL_STATUS> VirtAlloc::AllocateBlocks(size_t blockCount, uint64_t flags)
 {
+	std::lock_guard lock(vallocMutex);
 	if(blockCount == 0) return nullptr;
 
 	// determine if allocating physical memory is needed
@@ -338,7 +339,7 @@ std::expected<void*, MemoryAllocErrors> VirtAlloc::AllocateBlocks(size_t blockCo
 	if(!vmFindRes)
 	{
 		printf("[SYSKRNL64] [VIRT ALLOC] [ERROR]: Failed to find free virtual memory range for %llu blocks\r\n", blockCount);
-		return std::unexpected<MemoryAllocErrors>(vmFindRes.error());
+		return std::unexpected<KRNL_STATUS>(vmFindRes.error());
 	}
 	uintptr_t vaddr = vmFindRes.value();
 
@@ -352,18 +353,18 @@ std::expected<void*, MemoryAllocErrors> VirtAlloc::AllocateBlocks(size_t blockCo
 		if(flags & VA_NODE_FLAG_NO_EXECUTE_ACCESS) pageFlags |= PTE_NX;
 		if(flags & VA_NODE_FLAG_USER_ALLOC) pageFlags |= PTE_USER; 
 
-		MemoryAllocErrors pAllocRes = desc.physAlloc->AllocSparseBlocksToContiguousVirtualRange(blockCount, vaddr, pageFlags);
-		if(pAllocRes != MMD_SUCCESS)
+		KRNL_STATUS pAllocRes = desc.physAlloc->AllocSparseBlocksToContiguousVirtualRange(blockCount, vaddr, pageFlags);
+		if(pAllocRes != KRNL_SUCCESS)
 		{
 			printf("[SYSKRNL64] [VIRT ALLOC] [ERROR]: Failed to allocate physical memory\r\n");
-			return std::unexpected<MemoryAllocErrors>(pAllocRes);
+			return std::unexpected<KRNL_STATUS>(pAllocRes);
 		}
 	}
 
 	// Insert node into region tables
 
-	MemoryAllocErrors insertErr = InsertNode(vaddr, blockCount, flags);
-	if(insertErr != MMD_SUCCESS) {
+	KRNL_STATUS insertErr = InsertNode(vaddr, blockCount, flags);
+	if(insertErr != KRNL_SUCCESS) {
 		printf("[SYSKRNL64] [VIRT ALLOC] [ERROR]: Failed to insert new virtual region descriptor node\r\n");
 		return insertErr;
 	}
@@ -371,9 +372,9 @@ std::expected<void*, MemoryAllocErrors> VirtAlloc::AllocateBlocks(size_t blockCo
 	return reinterpret_cast<void*>(vaddr);
 }
 
-std::expected<uintptr_t, MemoryAllocErrors> VirtAlloc::FindFreeVirtualMemory(size_t blockCount, bool user)
+std::expected<uintptr_t, KRNL_STATUS> VirtAlloc::FindFreeVirtualMemory(size_t blockCount, bool user)
 {
-	if(blockCount == 0) return std::unexpected<MemoryAllocErrors>(MMD_INVALID_PARAMETER);
+	if(blockCount == 0) return std::unexpected<KRNL_STATUS>(KRNL_INVALID_PARAMETER);
 	
 	const size_t size = blockCount * BLOCK_SIZE;
 	const uintptr_t rangeStart = user ? USERSPACE_VADDR_START : KERNEL_VADDR_START;
@@ -416,7 +417,7 @@ std::expected<uintptr_t, MemoryAllocErrors> VirtAlloc::FindFreeVirtualMemory(siz
 		if(gap >= size) return prevEnd;
 	}
 
-	return std::unexpected<MemoryAllocErrors>(MMD_OUT_OF_MEMORY);
+	return std::unexpected<KRNL_STATUS>(KRNL_OUT_OF_MEMORY);
 }
 
 VA_Node* VirtAlloc::Min(VA_Node* node)
@@ -445,9 +446,10 @@ VA_Node* VirtAlloc::Successor(VA_Node* node)
 	return parent;
 }
 
-MemoryAllocErrors VirtAlloc::FreeBlocks(void* base)
+KRNL_STATUS VirtAlloc::FreeBlocks(void* base)
 {
-	if(!base) return MMD_INVALID_PARAMETER;
+	std::lock_guard lock(vallocMutex);
+	if(!base) return KRNL_INVALID_PARAMETER;
 
 	uintptr_t addr = reinterpret_cast<uintptr_t>(base);
 
@@ -463,7 +465,7 @@ MemoryAllocErrors VirtAlloc::FreeBlocks(void* base)
 		else node = node->right;
 	}
 
-	if(!node) return MMD_INVALID_PARAMETER;
+	if(!node) return KRNL_INVALID_PARAMETER;
 
 	// Use the paging driver to get the physical addresses mapped to the region to free
 	// And free physical blocks in runs, as physical blocks might not be contiguous
@@ -568,7 +570,7 @@ MemoryAllocErrors VirtAlloc::FreeBlocks(void* base)
 	reinterpret_cast<VA_FreeNode*>(node)->nextNode = entry->nextFreeNodePtr;
 	entry->nextFreeNodePtr = reinterpret_cast<VA_FreeNode*>(node);
 
-	return MMD_SUCCESS;
+	return KRNL_SUCCESS;
 }
 
 void VirtAlloc::Transplant(VA_Node* u, VA_Node* v)

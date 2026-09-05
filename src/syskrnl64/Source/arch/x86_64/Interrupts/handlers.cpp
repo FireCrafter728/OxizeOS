@@ -47,16 +47,16 @@ void IntHandlers::DoubleFaultHandler(ISR_InterruptStackFrame* regs)
 	printf("DS=0x%llX, ES=0x%llX, RBP=0x%llX, KERNEL RSP=0x%llX\r\n", regs->ds, regs->es, regs->rbp, regs->kernelRsp);
 	printf("RAX=0x%llX, RBX=0x%llX, RCX=0x%llX, RDX=0x%llX, RDI=0x%llX, RSI=0x%llX\r\n", regs->rax, regs->rbx, regs->rcx, regs->rdx, regs->rdi, regs->rsi);
 	printf("R8=0x%llX, R9=0x%llX, R10=0x%llX, R11=0x%llX, R12=0x%llX, R13=0x%llX, R14=0x%llX, R15=0x%llX\r\n", regs->r8, regs->r9, regs->r10, regs->r11, regs->r12, regs->r13, regs->r14, regs->r15);
-	printf("VECTOR: %d, ERRCODE: 0x%llX\r\n", regs->interrupt, regs->errcode);
+	printf("VECTOR: %llu, ERRCODE: 0x%llX\r\n", regs->interrupt, regs->errcode);
 	printf("RIP=0x%llX, CS=0x%llX, RFLAGS=0x%llX\r\n", regs->rip, regs->cs, regs->rflags);
 
 	// Check if ring transition happened between ring3 -> ring0
 	if((regs->cs & 3) == 3)
 	{
 		printf("USER RSP=0x%llX, USER SS=0x%llX\r\n", regs->userRsp, regs->ss);
-		printf("[INFO]: EXCEPTION OCCURRED IN RING 3");
+		printf("[INFO]: EXCEPTION OCCURRED IN RING 3\r\n");
 	}
-	else printf("[INFO]: EXCEPTION OCCURRED IN RING 0");
+	else printf("[INFO]: EXCEPTION OCCURRED IN RING 0\r\n");
 	HaltSystem();
 }
 
@@ -67,16 +67,16 @@ void IntHandlers::NonMaskableInterruptHandler(ISR_InterruptStackFrame* regs)
 	printf("DS=0x%llX, ES=0x%llX, RBP=0x%llX, KERNEL RSP=0x%llX\r\n", regs->ds, regs->es, regs->rbp, regs->kernelRsp);
 	printf("RAX=0x%llX, RBX=0x%llX, RCX=0x%llX, RDX=0x%llX, RDI=0x%llX, RSI=0x%llX\r\n", regs->rax, regs->rbx, regs->rcx, regs->rdx, regs->rdi, regs->rsi);
 	printf("R8=0x%llX, R9=0x%llX, R10=0x%llX, R11=0x%llX, R12=0x%llX, R13=0x%llX, R14=0x%llX, R15=0x%llX\r\n", regs->r8, regs->r9, regs->r10, regs->r11, regs->r12, regs->r13, regs->r14, regs->r15);
-	printf("VECTOR: %d, ERRCODE: 0x%llX\r\n", regs->interrupt, regs->errcode);
+	printf("VECTOR: %llu, ERRCODE: 0x%llX\r\n", regs->interrupt, regs->errcode);
 	printf("RIP=0x%llX, CS=0x%llX, RFLAGS=0x%llX\r\n", regs->rip, regs->cs, regs->rflags);
 
 	// Check if ring transition happened between ring3 -> ring0
 	if((regs->cs & 3) == 3)
 	{
 		printf("USER RSP=0x%llX, USER SS=0x%llX\r\n", regs->userRsp, regs->ss);
-		printf("[INFO]: EXCEPTION OCCURRED IN RING 3");
+		printf("[INFO]: EXCEPTION OCCURRED IN RING 3\r\n");
 	}
-	else printf("[INFO]: EXCEPTION OCCURRED IN RING 0");
+	else printf("[INFO]: EXCEPTION OCCURRED IN RING 0\r\n");
 	HaltSystem();
 }
 
@@ -87,15 +87,15 @@ void IntHandlers::MachineCheckExceptionHandler(ISR_InterruptStackFrame* regs)
 	printf("DS=0x%llX, ES=0x%llX, RBP=0x%llX, KERNEL RSP=0x%llX\r\n", regs->ds, regs->es, regs->rbp, regs->kernelRsp);
 	printf("RAX=0x%llX, RBX=0x%llX, RCX=0x%llX, RDX=0x%llX, RDI=0x%llX, RSI=0x%llX\r\n", regs->rax, regs->rbx, regs->rcx, regs->rdx, regs->rdi, regs->rsi);
 	printf("R8=0x%llX, R9=0x%llX, R10=0x%llX, R11=0x%llX, R12=0x%llX, R13=0x%llX, R14=0x%llX, R15=0x%llX\r\n", regs->r8, regs->r9, regs->r10, regs->r11, regs->r12, regs->r13, regs->r14, regs->r15);
-	printf("VECTOR: %d, ERRCODE: 0x%llX\r\n", regs->interrupt, regs->errcode);
+	printf("VECTOR: %llu, ERRCODE: 0x%llX\r\n", regs->interrupt, regs->errcode);
 	printf("RIP=0x%llX, CS=0x%llX, RFLAGS=0x%llX\r\n", regs->rip, regs->cs, regs->rflags);
 
 	// Check if ring transition happened between ring3 -> ring0
 	if((regs->cs & 3) == 3)
 	{
 		printf("USER RSP=0x%llX, USER SS=0x%llX\r\n", regs->userRsp, regs->ss);
-		printf("[INFO]: EXCEPTION OCCURRED IN RING 3");
+		printf("[INFO]: EXCEPTION OCCURRED IN RING 3\r\n");
 	}
-	else printf("[INFO]: EXCEPTION OCCURRED IN RING 0");
+	else printf("[INFO]: EXCEPTION OCCURRED IN RING 0\r\n");
 	HaltSystem();
 }

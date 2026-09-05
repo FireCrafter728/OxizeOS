@@ -3,7 +3,6 @@
 #pragma once
 
 #include <main/defs.hpp>
-#include <arch/x86_64/std/stdint.hpp>
 
 #include <arch/x86_64/ACPI/apic.hpp>
 #include <arch/x86_64/ACPI/hpet.hpp>

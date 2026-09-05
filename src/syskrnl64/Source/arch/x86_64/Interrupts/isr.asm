@@ -24,6 +24,25 @@ ISR%1:
 
 %endmacro
 
+%macro ISR_NOERRCODE_WITH_IST 1
+
+global ISR%1
+ISR%1:
+	push 0
+	push %1
+	jmp ist_common
+
+%endmacro
+
+%macro ISR_ERRCODE_WITH_IST 1
+
+global ISR%1
+ISR%1:
+	push %1
+	jmp ist_common
+
+%endmacro
+
 %include "Include/arch/x86_64/Interrupts/gen_isrs.inc"
 
 extern ISR_Handler
@@ -35,9 +54,10 @@ struc LPSpecificData
 	.self: resq 1
 	.identity: resd 6
 	.ihStackTopPtr: resq 1
-	.ihStackBottomPtr: resq 1
 	.intDepth: resq 1
 endstruc
+
+; Collector function for regular ISRs
 
 global isr_common
 isr_common:
@@ -57,6 +77,7 @@ isr_common:
 	; So instead of using gs: to access each field, we can use a register + offset which is faster
 	mov rbx, [gs:0]
 
+	; Check if the interrupt is nested, skip the stack switch if it is
 	mov rax, [rbx + LPSpecificData.intDepth]
 	test rax, rax
 	jnz .after_stack_check
@@ -245,5 +266,93 @@ isr_common:
 	add rsp, 16 ; pop the interrupt number and error code, as the iretq doesn't pop the error code itself
 
 	; return
+
+	iretq
+
+; Collector function for interrupts that have an IST
+
+global ist_common
+ist_common:
+	; push the rest of the registers to the stack frame
+	; the CPU has already pushed:
+	; SS and RSP of the previous CPL if the CPU changed privilege rings
+	; RFLAGS, CS and RIP
+	; Error code and Interrupt vector were pushed and padded by the entry stubs
+
+	; Left to push:
+	; RAX, RBX, RCX, RDX, RBP, RSP, RSI, RDI, R8-R15, ES, DS
+
+	push rax
+	push rbx
+	push rcx
+	push rdx
+
+	push rbp
+	push 0 ; Don't push the current RSP as it's pointless
+
+	push rsi
+	push rdi
+
+	push r8
+	push r9
+	push r10
+	push r11
+	push r12
+	push r13
+	push r14
+	push r15
+
+	mov rax, es
+	push rax
+	mov rax, ds
+	push rax
+
+	push 0 ; Push the handler flags
+
+	; Change the data segments to 64-bit ring 0 data segment
+	mov ax, 0x10
+	mov ds, ax
+	mov es, ax
+
+	; Store the stack frame in the first argument register
+
+	mov rcx, rsp
+
+	sub rsp, 40 ; 8 byte alignment and 32 byte shadow space required by the MS x64 abi
+
+	call ISR_Handler
+
+	add rsp, 40
+
+	; Restore the stack frame
+
+	add rsp, 8 ; Discard the handler flags
+
+	pop rax
+	mov ds, ax
+	pop rax
+	mov es, ax
+
+	pop r15
+	pop r14
+	pop r13
+	pop r12
+	pop r11
+	pop r10
+	pop r9
+	pop r8
+
+	pop rdi
+	pop rsi
+	
+	add rsp, 8 ; Skip the dummy RSP
+	pop rbp
+
+	pop rdx
+	pop rcx
+	pop rbx
+	pop rax
+
+	add rsp, 16 ; Discard the interrupt number and error code
 
 	iretq

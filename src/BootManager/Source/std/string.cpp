@@ -2,7 +2,7 @@
 
 #include <defs.hpp>
 
-int memcmp(const void* ptr1, const void* ptr2, size_t num)
+extern "C" int memcmp(const void* ptr1, const void* ptr2, size_t num)
 {
 	const uint8_t* u8Ptr1 = reinterpret_cast<const uint8_t*>(ptr1);
 	const uint8_t* u8Ptr2 = reinterpret_cast<const uint8_t*>(ptr2);
@@ -12,7 +12,7 @@ int memcmp(const void* ptr1, const void* ptr2, size_t num)
 	return 0;
 }
 
-extern "C" void* memset(void* ptr, uint8_t val, size_t num)
+extern "C" void* memset(void* ptr, int val, size_t num)
 {
 	uint8_t* u8PtrT = reinterpret_cast<uint8_t*>(ptr);
 	while((uintptr_t)u8PtrT % 8 && num) {

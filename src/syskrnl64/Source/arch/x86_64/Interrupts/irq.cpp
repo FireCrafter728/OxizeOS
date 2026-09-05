@@ -31,7 +31,7 @@ void IRQ::IRQDispatcher(ISR_InterruptStackFrame* regs)
 {
 	IRQHandler handler = instance->handlers[regs->interrupt - IRQ_BASE];
 	if(handler) handler(regs);
-	else printf("[SYSKRNL64] [IRQ] [WARN]: Unhandled IRQ 0x%X\r\n", regs->interrupt);
+	else printf("[SYSKRNL64] [IRQ] [WARN]: Unhandled IRQ 0x%llX\r\n", regs->interrupt);
 
 	instance->apic->SendEOI();
 }

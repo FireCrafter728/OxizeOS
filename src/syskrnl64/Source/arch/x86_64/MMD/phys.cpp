@@ -9,12 +9,12 @@
 
 using namespace krnl;
 
-MemoryAllocErrors PhysAlloc::Initialize(SystemTable* System)
+KRNL_STATUS PhysAlloc::Initialize(SystemTable* System)
 {
 	// Load and verify data
 	if(!System) {
 		printf("[SYSKRNL64] [PHYS ALLOC] [ERROR]: Invalid System table ptr specified\r\n");
-		return MMD_INVALID_PARAMETER;
+		return KRNL_INVALID_PARAMETER;
 	}
 
 	this->bitmap = reinterpret_cast<uint8_t*>(System->memLayout.PhysAllocBitmapAddr);
@@ -24,7 +24,7 @@ MemoryAllocErrors PhysAlloc::Initialize(SystemTable* System)
 	if(!this->bitmap || this->bitmapPageCount == 0)
 	{
 		printf("[SYSKRNL64] [PHYS ALLOC] [ERROR]: Invalid System table data for physical allocator\r\n");
-		return MMD_INVALID_INIT_DATA;
+		return KRNL_INVALID_PARAMETER;
 	}
 
 	// Clear the bitmap by setting it all to 0 as initial state
@@ -70,15 +70,16 @@ MemoryAllocErrors PhysAlloc::Initialize(SystemTable* System)
 		nextRangeIndex++;
 	}
 
-	return MMD_SUCCESS;
+	return KRNL_SUCCESS;
 }
 
-std::expected<uintptr_t, MemoryAllocErrors> PhysAlloc::AllocContiguousBlocks(size_t blockCount)
+std::expected<uintptr_t, KRNL_STATUS> PhysAlloc::AllocContiguousBlocks(size_t blockCount)
 {
+	std::lock_guard lock(pallocMutex);
 	if(blockCount == 0) return 0; // return success with a nullptr
 
 	const uint64_t totalBlocks = static_cast<uint64_t>(bitmapPageCount) * PAGE_SIZE * 8ULL;
-	if(blockCount > totalBlocks) return std::unexpected<MemoryAllocErrors>(MMD_OUT_OF_MEMORY);
+	if(blockCount > totalBlocks) return std::unexpected<KRNL_STATUS>(KRNL_OUT_OF_MEMORY);
 
 	auto isFree = [&](uint64_t block) -> bool
 	{
@@ -128,15 +129,16 @@ std::expected<uintptr_t, MemoryAllocErrors> PhysAlloc::AllocContiguousBlocks(siz
 		return BitOffsetToAddr(start); // Convert block index in bitmap to an actual address
 	}
 
-	return std::unexpected<MemoryAllocErrors>(MMD_OUT_OF_MEMORY);
+	return std::unexpected<KRNL_STATUS>(KRNL_OUT_OF_MEMORY);
 }
 
-MemoryAllocErrors PhysAlloc::AllocSparseBlocksToContiguousVirtualRange(size_t blockCount, uintptr_t virt, uint64_t pageFlags)
+KRNL_STATUS PhysAlloc::AllocSparseBlocksToContiguousVirtualRange(size_t blockCount, uintptr_t virt, uint64_t pageFlags)
 {
-	if(blockCount == 0) return MMD_SUCCESS;
+	std::lock_guard lock(pallocMutex);
+	if(blockCount == 0) return KRNL_SUCCESS;
 	
 	const uint64_t totalBlocks = static_cast<uint64_t>(bitmapPageCount) * PAGE_SIZE * 8ULL;
-	if(blockCount > totalBlocks) return MMD_OUT_OF_MEMORY;
+	if(blockCount > totalBlocks) return KRNL_OUT_OF_MEMORY;
 
 	const uint64_t searchStartBlock = lastFreeBlockOffset < totalBlocks ? lastFreeBlockOffset : 0;
 	const uint64_t searchStartQword = searchStartBlock >> 6;
@@ -267,14 +269,15 @@ MemoryAllocErrors PhysAlloc::AllocSparseBlocksToContiguousVirtualRange(size_t bl
 		return false;
 	};
 
-	if(scanPass(searchStartQword, totalQwords, searchStartBit)) return MMD_SUCCESS;
-	if(searchStartBlock != 0 && scanPass(0, searchStartQword, 0)) return MMD_SUCCESS;
+	if(scanPass(searchStartQword, totalQwords, searchStartBit)) return KRNL_SUCCESS;
+	if(searchStartBlock != 0 && scanPass(0, searchStartQword, 0)) return KRNL_SUCCESS;
 
-	return MMD_OUT_OF_MEMORY;
+	return KRNL_OUT_OF_MEMORY;
 }
 
 bool PhysAlloc::FreeBlocks(void* base, size_t blockCount)
 {
+	std::lock_guard lock(pallocMutex);
 	if(blockCount == 0) return true;
 
 	uint64_t bitOffset = AddrToBitOffset(reinterpret_cast<uintptr_t>(base));

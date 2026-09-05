@@ -33,7 +33,7 @@ bool AHCI::Initialize(AHCIDevice* device)
 	auto barMapRes = virtAlloc->AllocateBlocks(hbaBlocks, VA_NODE_FLAG_MMIO | VA_NODE_FLAG_NO_EXECUTE_ACCESS | VA_NODE_FLAG_USED);
 	
 	if(!barMapRes) {
-		printf("[SYSKRNL64] [SATA-AHCI] [ERROR]: Failed to reserve virtual memory for HBA, error code: %d\r\n", barMapRes.error());
+		printf("[SYSKRNL64] [SATA-AHCI] [ERROR]: Failed to reserve virtual memory for HBA, error code: %lu\r\n", barMapRes.error());
 		return false;
 	}
 
@@ -157,7 +157,7 @@ bool AHCI::Initialize(AHCIDevice* device)
 		}
 
 		if(port->PxSERR != 0) {
-			printf("[SYSKRNL64] [SATA-AHCI] [ERROR]: Failed to send IDENTIFY DEVICE for port %d, PxSERR: 0x%X\r\n", i, port->PxSERR);
+			printf("[SYSKRNL64] [SATA-AHCI] [ERROR]: Failed to send IDENTIFY DEVICE for port %d, PxSERR: 0x%lX\r\n", i, port->PxSERR);
 			return false;
 		}
 
@@ -167,7 +167,7 @@ bool AHCI::Initialize(AHCIDevice* device)
 		}
 
 		if((port->PxTFD & 0xFF) & AHCI_PxTFD_Error) {
-			printf("[SYSKRNL64] [SATA-AHCI] [ERROR]: Failed to send IDENTIFY DEVICE for port %d, Status: 0x%X, Error: 0x%X\r\n", i, (port->PxTFD & 0xFF), ((port->PxTFD >> 8) & 0xFF));
+			printf("[SYSKRNL64] [SATA-AHCI] [ERROR]: Failed to send IDENTIFY DEVICE for port %d, Status: 0x%lX, Error: 0x%lX\r\n", i, (port->PxTFD & 0xFF), ((port->PxTFD >> 8) & 0xFF));
 			return false;
 		}
 	}
@@ -235,13 +235,13 @@ bool AHCI::InitializePorts(AHCIDevice* device)
 
 		auto cmdHeaderAllocRes = virtAlloc->AllocateBlocks(1, VA_NODE_FLAG_PHYSICALLY_NOT_BACKED | VA_NODE_FLAG_MMIO | VA_NODE_FLAG_NO_EXECUTE_ACCESS | VA_NODE_FLAG_USED);
 		if(!cmdHeaderAllocRes) {
-			printf("[SYSKRNL64] [SATA-AHCI] [ERROR]: Failed to allocate virtual memory for port %d CLB, error code: %d\r\n", i, cmdHeaderAllocRes.error());
+			printf("[SYSKRNL64] [SATA-AHCI] [ERROR]: Failed to allocate virtual memory for port %d CLB, error code: %lu\r\n", i, cmdHeaderAllocRes.error());
 			return false;
 		}
 		auto cmdHeaderPhysAllocRes = physAlloc->AllocContiguousBlocks(1);
 		if(!cmdHeaderPhysAllocRes)
 		{
-			printf("[SYSKRNL64] [SATA-AHCI] [ERROR]: Failed to allocate physical memory for port %d CLB, error code: %d\r\n", i, cmdHeaderPhysAllocRes.error());
+			printf("[SYSKRNL64] [SATA-AHCI] [ERROR]: Failed to allocate physical memory for port %d CLB, error code: %lu\r\n", i, cmdHeaderPhysAllocRes.error());
 			return false;
 		}
 		paging->MapArea(cmdHeaderPhysAllocRes.value(), reinterpret_cast<uintptr_t>(cmdHeaderAllocRes.value()), 1, PTE_PRESENT | PTE_RW | PTE_PCD | PTE_NX);
@@ -250,12 +250,12 @@ bool AHCI::InitializePorts(AHCIDevice* device)
 		auto fbHeaderAllocRes = virtAlloc->AllocateBlocks(1, VA_NODE_FLAG_PHYSICALLY_NOT_BACKED | VA_NODE_FLAG_MMIO | VA_NODE_FLAG_NO_EXECUTE_ACCESS | VA_NODE_FLAG_USED);
 		if(!fbHeaderAllocRes)
 		{
-			printf("[SYSKRNL64] [SATA-AHCI] [ERROR]: Failed to allocate virtual memory for port %d FB, error code: %d\r\n", i, fbHeaderAllocRes.error());
+			printf("[SYSKRNL64] [SATA-AHCI] [ERROR]: Failed to allocate virtual memory for port %d FB, error code: %lu\r\n", i, fbHeaderAllocRes.error());
 			return false;
 		}
 		auto fbHeaderPhysAllocRes = physAlloc->AllocContiguousBlocks(1);
 		if(!fbHeaderPhysAllocRes) {
-			printf("[SYSKRNL64] [SATA-AHCI] [ERROR]: Failed to allocate physical memory for port %d FB, error code: %d\r\n", i, fbHeaderPhysAllocRes.error());
+			printf("[SYSKRNL64] [SATA-AHCI] [ERROR]: Failed to allocate physical memory for port %d FB, error code: %lu\r\n", i, fbHeaderPhysAllocRes.error());
 			return false;
 		}
 		paging->MapArea(fbHeaderPhysAllocRes.value(), reinterpret_cast<uintptr_t>(fbHeaderAllocRes.value()), 1, PTE_PRESENT | PTE_RW | PTE_PCD | PTE_NX);
@@ -276,12 +276,12 @@ bool AHCI::InitializePorts(AHCIDevice* device)
 			auto cmdtAllocRes = virtAlloc->AllocateBlocks(1, VA_NODE_FLAG_PHYSICALLY_NOT_BACKED | VA_NODE_FLAG_MMIO | VA_NODE_FLAG_NO_EXECUTE_ACCESS | VA_NODE_FLAG_USED);
 			if(!cmdtAllocRes)
 			{
-				printf("[SYSKRNL64] [SATA-AHCI] [ERROR]: Failed to allocate virtual memory for port %d command tables, error code: %d\r\n", i, cmdtAllocRes.error());
+				printf("[SYSKRNL64] [SATA-AHCI] [ERROR]: Failed to allocate virtual memory for port %d command tables, error code: %lu\r\n", i, cmdtAllocRes.error());
 				return false;
 			}
 			auto cmdtPhysAllocRes = physAlloc->AllocContiguousBlocks(1);
 			if(!cmdtPhysAllocRes) {
-				printf("[SYSKRNL64] [SATA-AHCI] [ERROR]: Failed to allocate physical memory for port %d command tables, error code: %d\r\n", i, cmdtPhysAllocRes.error());
+				printf("[SYSKRNL64] [SATA-AHCI] [ERROR]: Failed to allocate physical memory for port %d command tables, error code: %lu\r\n", i, cmdtPhysAllocRes.error());
 				return false;
 			}
 			paging->MapArea(cmdtPhysAllocRes.value(), reinterpret_cast<uintptr_t>(cmdtAllocRes.value()), 1, PTE_PRESENT | PTE_RW | PTE_PCD | PTE_NX);
@@ -406,12 +406,12 @@ bool AHCI::ReadSectors(AHCIDiskDevice* device, uint64_t lba, size_t count, void*
 		}
 		
 		if(port->PxSERR != 0) {
-			printf("[SYSKRNL64] [SATA-AHCI] [ERROR]: Failed to read from DISK at port %d, PxSERR: 0x%X\r\n", device->devicePort, port->PxSERR);
+			printf("[SYSKRNL64] [SATA-AHCI] [ERROR]: Failed to read from DISK at port %d, PxSERR: 0x%lX\r\n", device->devicePort, port->PxSERR);
 			return false;
 		}
 
 		if((port->PxTFD & 0xFF) & AHCI_PxTFD_Error) {
-			printf("[SYSKRNL64] [SATA-AHCI] [ERROR]: Failed to read from DISK at port %d, Status: 0x%X, Error: 0x%X\r\n", device->devicePort, (port->PxTFD & 0xFF), ((port->PxTFD >> 8) & 0xFF));
+			printf("[SYSKRNL64] [SATA-AHCI] [ERROR]: Failed to read from DISK at port %d, Status: 0x%lX, Error: 0x%lX\r\n", device->devicePort, (port->PxTFD & 0xFF), ((port->PxTFD >> 8) & 0xFF));
 			return false;
 		}
 

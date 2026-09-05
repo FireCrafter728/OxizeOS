@@ -114,7 +114,7 @@ bool Timer::Initialize(const TimerDesc* desc)
 		}
 		uint64_t timestamp = iTSC::GetCounterValue();
 
-		while(iTSCCalibrationTimestamp == 0) PauseCurrentCore();
+		while(iTSCCalibrationTimestamp == 0) SuspendCurrentCore();
 
 		// At this point the second timestamp is set, calculate the elapsed ticks, convert to frequency and call iTSC::Calibrate
 		uint64_t elapsedTicks = iTSCCalibrationTimestamp - timestamp;
@@ -248,7 +248,7 @@ void Timer::SleepNS(uint64_t nanoseconds)
 		sleepDone = false;
 		hpetEvent = SleepEvent;
 		if(!desc->hpet->ArmTimer(desc->hpetDevice, &hpetTimer, nanoseconds)) return;
-		while(!sleepDone) PauseCurrentCore();
+		while(!sleepDone) SuspendCurrentCore();
 
 		// SleepEvent has executed, return
 		return;

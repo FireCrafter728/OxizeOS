@@ -23,6 +23,7 @@ void Paging::Initialize(SystemTable* System)
 
 void Paging::MapArea(uintptr_t Phys, uintptr_t Virt, size_t pageCount, uint64_t flags)
 {
+	std::lock_guard lock(pagingMutex);
 	if(!this->freeTableList || !this->PageTables || !this->PageTablesPages || !this->regionStart) {
 		printf("[SYSKRNL64] [PAGING] [ERROR]: MapArea() called when driver was not initialized\r\n");
 		HaltSystem();
@@ -77,6 +78,7 @@ void Paging::MapArea(uintptr_t Phys, uintptr_t Virt, size_t pageCount, uint64_t 
 
 void Paging::FreeArea(uintptr_t Virt, size_t pageCount)
 {
+	std::lock_guard lock(pagingMutex);
 	Virt = PAGE_ALIGN_DOWN(Virt);
 
 	for(size_t i = 0; i < pageCount; i++)
@@ -115,7 +117,7 @@ void Paging::FreeArea(uintptr_t Virt, size_t pageCount)
 			}
 			if(ptEmpty)
 			{
-				FreePage(GetPhys(reinterpret_cast<uintptr_t>(pt)));
+				FreePage(GetPhysImpl(reinterpret_cast<uintptr_t>(pt)));
 				pd[pt_idx] = 0;
 
 				bool pdEmpty = true;
@@ -124,7 +126,7 @@ void Paging::FreeArea(uintptr_t Virt, size_t pageCount)
 					break;
 				}
 				if(pdEmpty) {
-					FreePage(GetPhys(reinterpret_cast<uintptr_t>(pd)));
+					FreePage(GetPhysImpl(reinterpret_cast<uintptr_t>(pd)));
 					pdpt[pdpt_idx] = 0;
 
 					bool pdptEmpty = true;
@@ -134,7 +136,7 @@ void Paging::FreeArea(uintptr_t Virt, size_t pageCount)
 					}
 					if(pdptEmpty)
 					{
-						FreePage(GetPhys(reinterpret_cast<uintptr_t>(pdpt)));
+						FreePage(GetPhysImpl(reinterpret_cast<uintptr_t>(pdpt)));
 						pml4[pml4_idx] = 0;
 					}
 				}
@@ -171,6 +173,12 @@ void Paging::FreePage(uintptr_t phys)
 }
 
 uintptr_t Paging::GetPhys(uintptr_t Virt)
+{
+	std::lock_guard lock(pagingMutex);
+	return GetPhysImpl(Virt);
+}
+
+uintptr_t Paging::GetPhysImpl(uintptr_t Virt)
 {
 	// Get page tables indices for current vaddr
 	const uint16_t pml4_idx = (Virt >> 39) & 0x1FF;

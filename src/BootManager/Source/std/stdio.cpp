@@ -4,12 +4,6 @@
 
 #include <stdio.hpp>
 
-#if defined(__GNUC__) || defined(__clang__)
-#define PRINTF_ATTR(fmt_idx, arg_idx) __attribute__((format(printf, fmt_idx, arg_idx)))
-#else
-#define PRINTF_ATTR(fmt_idx, arg_idx)
-#endif
-
 using namespace BootMgr;
 
 static uint8_t ConvBuffer[PAGE_SIZE];

@@ -8,12 +8,12 @@
 # 0x140 -> Kernel-level executable, either the kernel itself or a kernel driver
 X64_TARGET_LINKFLAGS += -T linker.ld -Wl,-Map=$(OUTPUT)/syskrnl64.map,--image-base,0 \
 						-Wl,--major-os-version,1,--minor-os-version,0,--major-image-version,1,--minor-image-version,14 \
-						-Wl,--subsystem,0x140,--major-subsystem-version,1,--minor-subsystem-version,0
+						-Wl,--subsystem,0x140,--major-subsystem-version,1,--minor-subsystem-version,0 -flto
 
 X64_TARGET_CXXFLAGS += -fno-exceptions -fno-rtti -mno-red-zone -fno-stack-protector \
 					   -Wno-address-of-packed-member -fno-threadsafe-statics -fno-asynchronous-unwind-tables -fno-use-cxa-atexit \
 					   -mno-avx -mno-avx2 -mno-avx512f -mno-avx512bw -mno-avx512dq -mno-avx512vl -mno-fma \
-					   -msse2 -fshort-wchar -MMD -MP \
+					   -msse2 -fshort-wchar -MMD -MP -O0 -g\
 					   -I Include/ -I Include/std/ -I $(LIB)/OxizeOS/
 X64_TARGET_WINDRES_FLAGS += -O coff
 

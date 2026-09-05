@@ -7,8 +7,10 @@
 #include <arch/x86_64/Utility/itsc.hpp>
 #include <arch/x86_64/Utility/cpuid.hpp>
 #include <arch/x86_64/Utility/msr.hpp>
+#include <arch/x86_64/Utility/alloc.hpp>
 
 #include <arch/x86_64/MP/lpdata.hpp>
+#include <arch/x86_64/MP/lcpu.hpp>
 
 #include <arch/x86_64/Interrupts/gdt.hpp>
 #include <arch/x86_64/Interrupts/idt.hpp>
@@ -27,22 +29,21 @@
 
 #include <API/ResourceMgr/ResourceMgr.hpp>
 #include <API/Time/time.hpp>
+#include <API/HandleMgr/handle.hpp>
 
 #include <stdio.hpp>
 #include <string.hpp>
-#include <string>
 #include <stdint.h>
 #include <stddef.h>
+
+#include <queue>
+#include <string>
 
 const uint16_t GDT_64BIT_RING0_CODESEG = 0x08;
 const uint16_t GDT_64BIT_RING0_DATASEG = 0x10;
 const uint16_t GDT_64BIT_RING3_CODESEG = 0x18;
 const uint16_t GDT_64BIT_RING3_DATASEG = 0x20;
-
-const uint16_t GDT_32BIT_RING0_CODESEG = 0x28;
-const uint16_t GDT_32BIT_RING0_DATASEG = 0x30;
-const uint16_t GDT_32BIT_RING3_CODESEG = 0x38;
-const uint16_t GDT_32BIT_RING3_DATASEG = 0x40;
+const uint16_t GDT_TSS_DESC_OFFSET = 0x28;
 
 // Global extern pointers to drivers
 
@@ -52,8 +53,6 @@ krnl::MSR* krnl::msr;
 krnl::PhysAlloc* krnl::physAlloc;
 krnl::VirtAlloc* krnl::virtAlloc;
 krnl::HeapAlloc* krnl::heapAlloc;
-
-krnl::GDT_Entry* krnl::gdtEntries;
 
 // Static class defs to survive the stack switch
 
@@ -91,6 +90,8 @@ static krnl::GDT_Entry s_gdtEntries[TOTAL_GDT_ENTRIES] = {
 	// Other slots reserved for TSS Descriptors
 };
 
+KRNL_STATUS InitializeTaskScheduler(krnl::LPID lpId, SystemTable* System, void* returnBuffer, uint64_t Parameter1, uint64_t Parameter2);
+
 // kernel bootstrap function, sets up the kernel to it's final expected state and returns the pointer to the end of the new stack to switch to
 extern "C" uint64_t kernel_bootstrap(SystemTable* System)
 {
@@ -121,10 +122,10 @@ extern "C" uint64_t kernel_bootstrap(SystemTable* System)
 
 	// Setup physical bitmap allocator
 
-	krnl::MemoryAllocErrors res = s_physAlloc.Initialize(System);
-	if(res != krnl::MMD_SUCCESS)
+	KRNL_STATUS res = s_physAlloc.Initialize(System);
+	if(KRNL_ERROR(res))
 	{
-		printf("[SYSKRNL64] [ERROR]: Failed to initialize Physical allocator, error code: %d\r\n", res);
+		printf("[SYSKRNL64] [ERROR]: Failed to initialize Physical allocator, error code: %lu\r\n", res);
 		HaltSystem();
 	}
 	krnl::physAlloc = &s_physAlloc;
@@ -135,9 +136,9 @@ extern "C" uint64_t kernel_bootstrap(SystemTable* System)
 	virtAllocDesc.physAlloc = &s_physAlloc;
 	virtAllocDesc.System = System;
 	res = s_virtAlloc.Initialize(&virtAllocDesc);
-	if(res != krnl::MMD_SUCCESS)
+	if(KRNL_ERROR(res))
 	{
-		printf("[SYSKRNL64] [ERROR]: Failed to initialize Virtual allocator, error code: %d\r\n", res);
+		printf("[SYSKRNL64] [ERROR]: Failed to initialize Virtual allocator, error code: %lu\r\n", res);
 		HaltSystem();
 	}
 	krnl::virtAlloc = &s_virtAlloc;
@@ -148,9 +149,9 @@ extern "C" uint64_t kernel_bootstrap(SystemTable* System)
 	heapAllocDesc.physAlloc = &s_physAlloc;
 	heapAllocDesc.virtAlloc = &s_virtAlloc;
 	res = s_heapAlloc.Initialize(&heapAllocDesc);
-	if(res != krnl::MMD_SUCCESS)
+	if(KRNL_ERROR(res))
 	{
-		printf("[SYSKRNL64] [ERROR]: Failed to initialize Kernel heap allocator, error code: %d\r\n", res);
+		printf("[SYSKRNL64] [ERROR]: Failed to initialize Kernel heap allocator, error code: %lu\r\n", res);
 		HaltSystem();
 	}
 	krnl::heapAlloc = &s_heapAlloc;
@@ -169,7 +170,6 @@ extern "C" uint64_t kernel_bootstrap(SystemTable* System)
 	// Setup Global Description Table //
 	// ------------------------------ //
 
-	krnl::gdtEntries = s_gdtEntries;
 	s_gdt.Initialize(s_gdtEntries, sizeof(s_gdtEntries) / sizeof(s_gdtEntries[0]), GDT_64BIT_RING0_CODESEG, GDT_64BIT_RING0_DATASEG);
 
 	// ---------------- //
@@ -192,29 +192,20 @@ extern "C" uint64_t kernel_bootstrap(SystemTable* System)
 	// Setup a new 512KiB kernel stack //
 	// ------------------------------- //
 
-	// Reserve virtual memory for a new stack for the kernel
+	uintptr_t stackAddr = krnl::AllocateStack(KERNEL_STACK_SIZE, "new kernel stack");
+	if(!stackAddr) HaltSystem();
 
-	auto kernelStackAllocRes = s_virtAlloc.AllocateBlocks(BLOCK_COUNT(KERNEL_STACK_SIZE) + 1, krnl::VA_NODE_FLAG_PHYSICALLY_NOT_BACKED | krnl::VA_NODE_FLAG_USED);
-	if(!kernelStackAllocRes)
-	{
-		printf("[SYSKRNL64] [ERROR]: Failed to reserve virtual memory for a new kernel stack with a size of 0x%llX, error: %d\r\n", KERNEL_STACK_SIZE, kernelStackAllocRes.error());
-		HaltSystem();
-	}
-
-	// Allocate physical memory for the new kernel stack
-
-	uint32_t kernelStackPhysAllocRes = s_physAlloc.AllocSparseBlocksToContiguousVirtualRange(BLOCK_COUNT(KERNEL_STACK_SIZE), reinterpret_cast<uintptr_t>(kernelStackAllocRes.value()) + BLOCK_SIZE, PTE_PRESENT | PTE_RW); // Skip mapping first block to make it a guard page to catch stack overflows
-	if(kernelStackPhysAllocRes != krnl::MMD_SUCCESS)
-	{
-		printf("[SYSKRNL64] [ERROR]: Failed to allocate physical memory for a new kernel stack, error: %d\r\n", kernelStackPhysAllocRes);
-		HaltSystem();
-	}
-
-	return reinterpret_cast<uintptr_t>(kernelStackAllocRes.value()) + KERNEL_STACK_SIZE + BLOCK_SIZE;
+	return stackAddr;
 }
 
 extern "C" void kernel_main(SystemTable* System, uintptr_t StackAddr)
 {
+	// --------------------- //
+	// Initialize Handle Mgr //
+	// --------------------- //
+
+	API::HandleMgr::Initialize();
+
 	// Clear the screen to a blue color
 
 	size_t framebufferSize = System->fb.currentResolution.resHeight * System->fb.currentResolution.resPitch;
@@ -234,13 +225,19 @@ extern "C" void kernel_main(SystemTable* System, uintptr_t StackAddr)
 			row[x] = 0xFF0000CC;
 	}
 
+	// ------------------------------- //
+	// Initialize Resource Manager API //
+	// ------------------------------- //
+
 	API::ResourceMgr resourceMgr;
-	API_STATUS apiStatus = resourceMgr.Initialize(System);
-	if(API_ERROR(apiStatus))
+	KRNL_STATUS status = resourceMgr.Initialize(System);
+	if(KRNL_ERROR(status))
 	{
-		printf("[SYSKRNL64] [ERROR]: Failed to initialize resource manager, error code: 0x%lX\r\n", apiStatus);
+		printf("[SYSKRNL64] [ERROR]: Failed to initialize resource manager, error code: 0x%lX\r\n", status);
 		HaltSystem();
 	}
+
+	// Get kernel version strings
 
 	std::string krnlVersion, krnlBuild, krnlLicense, krnlCRDateStart, krnlCRDateEnd;
 
@@ -284,14 +281,23 @@ extern "C" void kernel_main(SystemTable* System, uintptr_t StackAddr)
 	}
 	krnlCRDateEnd = std::string(reinterpret_cast<const char*>(rsrcRes.value()->dataPtr), rsrcRes.value()->dataSize);
 
+	// Log the start of the logfile
+
 	printf("[SYSKRNL64] [INFO]: OxizeOS x86-64 Kernel version %s build %s. Copyright (C) %s-%s OxizeOS authors, contributors\r\n", krnlVersion.c_str(), krnlBuild.c_str(), krnlCRDateStart.c_str(), krnlCRDateEnd.c_str());
 	printf("[SYSKRNL64] [INFO]: Project licensed under %s\r\n", krnlLicense.c_str());
 	printf("-------------------------------------------------------------------------------------------------------------------------\r\n");
 
 	// Log kernel load addresses and load size
+
 	printf("[SYSKRNL64] [INFO]: SysKrnl64 Physical load address: 0x%llX, SysKrnl64 Virtual load address: 0x%llX, SysKrnl64 load size: 0x%llX\r\n", System->memLayout.SysKrnl64PhysAddr, s_paging.GetKrnlStructVirt(System->memLayout.SysKrnl64PhysAddr), System->memLayout.SysKrnl64LoadSize);
 
+	// Log GOP Framebuffer info
+
 	printf("[SYSKRNL64] [INFO]: GOP Framebuffer width: %llu, height: %llu, mapped at: 0x%llX\r\n", System->fb.currentResolution.resWidth, System->fb.currentResolution.resHeight, reinterpret_cast<uintptr_t>(framebuffer));
+
+	// Log new kernel stack address
+
+	printf("[SYSKRNL64] [INFO]: Kernel stack addr: 0x%llX, stack size: 0x%llX\r\n", StackAddr, KERNEL_STACK_SIZE);
 
 	// ----------------------------------------------------------------- //
 	// Setup BSP TSS and assign different stacks for some CPU exceptions //
@@ -303,57 +309,24 @@ extern "C" void kernel_main(SystemTable* System, uintptr_t StackAddr)
 
 	// IST1: Stack for the Double Fault(#DF) exception, vector 8, 16KiB stack
 
-	auto ist1StackAllocRes = s_virtAlloc.AllocateBlocks(BLOCK_COUNT(IST1_STACK_SIZE) + 1, krnl::VA_NODE_FLAG_PHYSICALLY_NOT_BACKED | krnl::VA_NODE_FLAG_USED);
-	if(!ist1StackAllocRes)
-	{
-		printf("[SYSKRNL64] [ERROR]: Failed to reserve virtual memory for the BSP IST1 stack for the Double Fault exception, error: %d\r\n", ist1StackAllocRes.error());
-		HaltSystem();
-	}
+	uintptr_t ist1StackAddr = krnl::AllocateStack(IST1_STACK_SIZE, "BSP IST1 stack for the Double Fault exception");
+	if(!ist1StackAddr) HaltSystem();
 
-	uint32_t ist1StackPhysAllocRes = s_physAlloc.AllocSparseBlocksToContiguousVirtualRange(BLOCK_COUNT(IST1_STACK_SIZE), reinterpret_cast<uintptr_t>(ist1StackAllocRes.value()) + BLOCK_SIZE, PTE_PRESENT | PTE_RW);
-	if(ist1StackPhysAllocRes != krnl::MMD_SUCCESS)
-	{
-		printf("[SYSKRNL64] [ERROR]: Failed to allocate physical memory for the BSP IST1 stack for the Double Fault exception, error: %d\r\n", ist1StackPhysAllocRes);
-		HaltSystem();
-	}
-
-	s_tss.ist1 = reinterpret_cast<uintptr_t>(ist1StackAllocRes.value()) + IST1_STACK_SIZE + BLOCK_SIZE;
+	s_tss.ist1 = ist1StackAddr;
 
 	// IST2: Stack for the Non-Maskable Interrupt exception, vector 2, 16KiB stack
 
-	auto ist2StackAllocRes = s_virtAlloc.AllocateBlocks(BLOCK_COUNT(IST2_STACK_SIZE) + 1, krnl::VA_NODE_FLAG_PHYSICALLY_NOT_BACKED | krnl::VA_NODE_FLAG_USED);
-	if(!ist2StackAllocRes)
-	{
-		printf("[SYSKRNL64] [ERROR]: Failed to reserve virtual memory for the BSP IST2 stack for the Non-Maskable Interrupt exception, error: %d\r\n", ist2StackAllocRes.error());
-		HaltSystem();
-	}
+	uintptr_t ist2StackAddr = krnl::AllocateStack(IST2_STACK_SIZE, "BSP IST2 stack for the Non Maskable Interrupt exception");
+	if(!ist2StackAddr) HaltSystem();
 
-	uint32_t ist2StackPhysAllocRes = s_physAlloc.AllocSparseBlocksToContiguousVirtualRange(BLOCK_COUNT(IST2_STACK_SIZE), reinterpret_cast<uintptr_t>(ist2StackAllocRes.value()) + BLOCK_SIZE, PTE_PRESENT | PTE_RW);
-	if(ist2StackPhysAllocRes != krnl::MMD_SUCCESS)
-	{
-		printf("[SYSKRNL64] [ERROR]: Failed to allocate physical memory for the BSP IST2 stack for the Non-Maskable Interrupt exception, error: %d\r\n", ist2StackPhysAllocRes);
-		HaltSystem();
-	}
-
-	s_tss.ist2 = reinterpret_cast<uintptr_t>(ist2StackAllocRes.value()) + IST2_STACK_SIZE + BLOCK_SIZE;
+	s_tss.ist2 = ist2StackAddr;
 
 	// IST3: Stack for the Machine Check exception, vector 18, 16KiB stack
 
-	auto ist3StackAllocRes = s_virtAlloc.AllocateBlocks(BLOCK_COUNT(IST3_STACK_SIZE) + 1, krnl::VA_NODE_FLAG_PHYSICALLY_NOT_BACKED | krnl::VA_NODE_FLAG_USED);
-	if(!ist3StackAllocRes)
-	{
-		printf("[SYSKRNL64] [ERROR]: Failed to reserve virtual memory for the BSP IST3 stack for the Machine Check exception, error: %d\r\n", ist3StackAllocRes.error());
-		HaltSystem();
-	}
+	uintptr_t ist3StackAddr = krnl::AllocateStack(IST3_STACK_SIZE, "BSP IST3 stack for the Machine Check exception");
+	if(!ist3StackAddr) HaltSystem();
 
-	uint32_t ist3StackPhysAllocRes = s_physAlloc.AllocSparseBlocksToContiguousVirtualRange(BLOCK_COUNT(IST3_STACK_SIZE), reinterpret_cast<uintptr_t>(ist3StackAllocRes.value()) + BLOCK_SIZE, PTE_PRESENT | PTE_RW);
-	if(ist3StackPhysAllocRes != krnl::MMD_SUCCESS)
-	{
-		printf("[SYSKRNL64] [ERROR]: Failed to allocate physical memory for the BSP IST3 stack for the Machine Check exception, error: %d\r\n", ist3StackPhysAllocRes);
-		HaltSystem();
-	}
-
-	s_tss.ist3 = reinterpret_cast<uintptr_t>(ist3StackAllocRes.value()) + IST3_STACK_SIZE + BLOCK_SIZE;
+	s_tss.ist3 = ist3StackAddr;
 
 	// ---------- //
 	// Setup ACPI //
@@ -386,7 +359,8 @@ extern "C" void kernel_main(SystemTable* System, uintptr_t StackAddr)
 	// ---------- //
 
 	krnl::APIC apic;
-	if(!apic.Initialize(madt)) {
+	status = apic.Initialize(madt);
+	if(KRNL_ERROR(status)) {
 		printf("[SYSKRNL64] [ERROR]: Failed to initialize APIC\r\n");
 		HaltSystem();
 	}
@@ -477,10 +451,10 @@ extern "C" void kernel_main(SystemTable* System, uintptr_t StackAddr)
 	// ---------- //
 
 	API::Time time;
-	apiStatus = time.Initialize(&timer);
-	if(API_ERROR(apiStatus))
+	status = time.Initialize(&timer);
+	if(KRNL_ERROR(status))
 	{
-		printf("[SYSKRNL64] [ERROR]: Failed to initialize time formatter, status: 0x%lX\r\n", apiStatus);
+		printf("[SYSKRNL64] [ERROR]: Failed to initialize time formatter, status: 0x%lX\r\n", status);
 		HaltSystem();
 	}
 
@@ -488,36 +462,86 @@ extern "C" void kernel_main(SystemTable* System, uintptr_t StackAddr)
 
 	API::TimeDate timeDate = time.GetTimeDate();
 
-	printf("[SYSKRNL64] [INFO]: Current System Time(UTC): YYYY-MM-DD HH:MM:SS.NS %u-%u-%u %u:%u:%u.%llu\r\n", timeDate.date.year, timeDate.date.month, timeDate.date.day, timeDate.time.hour, timeDate.time.minute, timeDate.time.second, timeDate.time.nanosecond);
+	printf("[SYSKRNL64] [INFO]: Current System Time(UTC): YYYY-MM-DD HH:MM:SS.NS %u-%u-%u %u:%u:%u.%lu\r\n", timeDate.date.year, timeDate.date.month, timeDate.date.day, timeDate.time.hour, timeDate.time.minute, timeDate.time.second, timeDate.time.nanosecond);
 
+	// ---------- //
+	// Setup LCPU //
+	// ---------- //
+
+	krnl::LCPU lcpu;
+	krnl::LCPU_InitDesc lcpuInitDesc = {};
+	lcpuInitDesc.apic = &apic;
+	lcpuInitDesc.timer = &timer;
+	lcpuInitDesc.lpData = &s_lpData;
+	lcpuInitDesc.System = System;
+	lcpuInitDesc.idt = &s_idt;
+	lcpuInitDesc.isr = &s_isr;
+
+	status = lcpu.Initialize(&lcpuInitDesc);
+	if(KRNL_ERROR(status))
+	{
+		printf("[SYSKRNL64] [ERROR]: Failed to initialize LCPU\r\n");
+		HaltSystem();
+	}
+
+	// Setup the BSP Initial event
+
+	uint64_t initialEventData[] = {
+		reinterpret_cast<uint64_t>(InitializeTaskScheduler),
+		0xAAAAAAAA55555555,
+		0x123456789ABCDEF0,
+	};
+
+	krnl::LPEventData initialEventInfo = {};
+	initialEventInfo.eventType = krnl::LP_EVENT_TYPE_EXECUTE;
+	initialEventInfo.targetLPId = 0x00; // Doesn't matter
+	initialEventInfo.eventData = initialEventData;
+	initialEventInfo.eventDataLength = sizeof(initialEventData);
+	
+	auto ieCreateRes = lcpu.CreateEvent(&initialEventInfo);
+	if(!ieCreateRes)
+	{
+		printf("[SYSKRNL64] [ERROR]: Failed to create an initial BSP Event, error: 0x%lX\r\n", ieCreateRes.error());
+		HaltSystem();
+	}
+	status = lcpu.EnterEventHandler(ieCreateRes.value(), System);
+	printf("[SYSKRNL64] [ERROR]: Failed to enter the BSP Event handler, error: 0x%lX\r\n", status);
 	HaltSystem();
 
-	// ---------- //
-	// Setup AHCI //
-	// ---------- //
+	// End of kernel_main, continuation is in InitializeTaskScheduler
 
-	krnl::PCIe_DeviceInfo filters = {}, ahciPcieDevice;
-	filters.VendorID = filters.DeviceID = krnl::PCIE_ANY16;
-	filters.progIF = 0x01;
-	filters.subClass = 0x06;
-	filters.classCode = 0x01;
+	// // ---------- //
+	// // Setup AHCI //
+	// // ---------- //
 
-	if(!pcie.LocateDevice(&filters, &ahciPcieDevice)) {
-		printf("[SYSKRNL64] [ERROR]: Failed to locate SATA IntelAHCI Device\r\n");
-		HaltSystem();
-	}
+	// krnl::PCIe_DeviceInfo filters = {}, ahciPcieDevice;
+	// filters.VendorID = filters.DeviceID = krnl::PCIE_ANY16;
+	// filters.progIF = 0x01;
+	// filters.subClass = 0x06;
+	// filters.classCode = 0x01;
 
-	krnl::AHCI ahci;
-	krnl::AHCIDevice ahciDevice;
+	// if(!pcie.LocateDevice(&filters, &ahciPcieDevice)) {
+	// 	printf("[SYSKRNL64] [ERROR]: Failed to locate SATA IntelAHCI Device\r\n");
+	// 	HaltSystem();
+	// }
 
-	ahciDevice.deviceInfo = &ahciPcieDevice;
+	// krnl::AHCI ahci;
+	// krnl::AHCIDevice ahciDevice;
 
-	if(!ahci.Initialize(&ahciDevice)) {
-		printf("[SYSKRNL64] [ERROR]: Failed to initialize SATA IntelAHCI Device\r\n");
-		HaltSystem();
-	}
+	// ahciDevice.deviceInfo = &ahciPcieDevice;
 
-	EnableInterrupts();
+	// if(!ahci.Initialize(&ahciDevice)) {
+	// 	printf("[SYSKRNL64] [ERROR]: Failed to initialize SATA IntelAHCI Device\r\n");
+	// 	HaltSystem();
+	// }
 
+	// EnableInterrupts();
+
+	// HaltSystem();
+}
+
+KRNL_STATUS InitializeTaskScheduler(krnl::LPID lpId, SystemTable* System, void* returnBuffer, uint64_t parameter1, uint64_t parameter2)
+{
+	printf("[SYSKRNL64] [INFO]: InitializeTaskScheduler was called with lpId 0x%lX, SystemTable ptr 0x%p, return buffer ptr 0x%p, parameter 1 0x%llX, parameter 2 0x%llX\r\n", lpId, System, returnBuffer, parameter1, parameter2);
 	HaltSystem();
 }

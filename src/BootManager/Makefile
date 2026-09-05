@@ -5,7 +5,7 @@ X64_TARGET_LINKFLAGS += -T linker.ld -Wl,--subsystem,10 -Wl,--image-base,0 -e ef
 X64_TARGET_CXXFLAGS += -fno-exceptions -fno-rtti -fno-stack-protector -mno-red-zone \
 					   -fno-asynchronous-unwind-tables  -fno-use-cxa-atexit \
 					   -mno-avx -mno-avx2 -mno-avx512f -mno-avx512bw -mno-avx512dq -mno-avx512vl -mno-fma \
-					   -msse2 -fshort-wchar -MMD -MP \
+					   -msse2 -fshort-wchar -MMD -MP\
 					   -I Include/ -I Include/std/ -I $(LIB)/EDK2/MdePkg/Include  -I $(LIB)/OxizeOS/
 
 SOURCES_CPP = $(shell find Source -name '*.cpp')

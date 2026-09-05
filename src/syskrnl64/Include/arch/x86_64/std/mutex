@@ -1,0 +1,44 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+
+#pragma once
+
+#include <atomic>
+
+#include <arch/x86_64/Utility/io.hpp>
+
+// std::arch_mutex implementation for the x86_64 architecture
+
+namespace std
+{
+	class arch_mutex
+	{
+	public:
+		arch_mutex() noexcept = default;
+
+		arch_mutex(const arch_mutex&) = delete;
+		arch_mutex& operator=(const arch_mutex&) = delete;
+
+		arch_mutex(arch_mutex&&) = delete;
+		arch_mutex& operator=(arch_mutex&&) = delete;
+
+		void arch_lock(atomic<bool>& locked) noexcept
+		{
+			while(locked.exchange(true, memory_order_acquire))
+			{
+				while(locked.load(memory_order_relaxed)) Pause();
+			}
+		}
+
+		bool arch_try_lock(atomic<bool>& locked) noexcept
+		{
+			bool expected = false;
+
+			return locked.compare_exchange_strong(expected, true, memory_order_acquire, memory_order_relaxed);
+		}
+
+		void arch_unlock(atomic<bool>& locked) noexcept
+		{
+			locked.store(false, memory_order_release);
+		}		
+	};
+}

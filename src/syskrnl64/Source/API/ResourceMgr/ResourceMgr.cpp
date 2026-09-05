@@ -38,12 +38,12 @@ struct PACK ImageResourceDataEntry
 	uint32_t _Reserved;
 };
 
-API_STATUS ResourceMgr::Initialize(SystemTable* System)
+KRNL_STATUS ResourceMgr::Initialize(SystemTable* System)
 {
 	if(!System)
 	{
 		printf("[SYSKRNL64] [RESOURCE MGR] [ERROR]: Invalid Initialize() input parameters\r\n");
-		return API_INVALID_PARAMETER;
+		return KRNL_INVALID_PARAMETER;
 	}
 
 	this->System = System;
@@ -77,7 +77,7 @@ API_STATUS ResourceMgr::Initialize(SystemTable* System)
 			if(!nameBuffer)
 			{
 				printf("[SYSKRNL64] [RESOURCE MGR] [ERROR]: Failed to allocate memory for a wide string buffer for the type name\r\n");
-				return API_MEMORY_ALLOC_FAILED;
+				return KRNL_MEMORY_ALLOC_FAILED;
 			}
 			memcpy(nameBuffer, strEntry->NameString, strEntry->length * sizeof(wchar_t));
 			nameBuffer[strEntry->length] = L'\0';
@@ -90,7 +90,7 @@ API_STATUS ResourceMgr::Initialize(SystemTable* System)
 		if((entryInRoot->offsetToData & (1 << 31UL)) == 0)
 		{
 			printf("[SYSKRNL64] [RESOURCE MGR] [ERROR]: First level directory entry points to a data structure, not the next level directory\r\n");
-			return API_RMGR_INVALID_TREE_STRUCTURE;
+			return KRNL_API_RMGR_INVALID_TREE_STRUCTURE;
 		}
 
 		ImageResourceDirectory* firstLevelHdr = reinterpret_cast<ImageResourceDirectory*>((entryInRoot->offsetToData & 0x7FFFFFFFUL) + System->ResourceSectionVirtAddr);
@@ -116,7 +116,7 @@ API_STATUS ResourceMgr::Initialize(SystemTable* System)
 				if(!nameBuffer)
 				{
 					printf("[SYSKRNL64] [RESOURCE MGR] [ERROR]: Failed to allocate memory for a wide string buffer for the resource name\r\n");
-					return API_MEMORY_ALLOC_FAILED;
+					return KRNL_MEMORY_ALLOC_FAILED;
 				}
 				memcpy(nameBuffer, strEntry->NameString, strEntry->length * sizeof(wchar_t));
 				nameBuffer[strEntry->length] = L'\0';
@@ -129,7 +129,7 @@ API_STATUS ResourceMgr::Initialize(SystemTable* System)
 			if((entryInLvl1->offsetToData & (1 << 31UL)) == 0)
 			{
 				printf("[SYSKRNL64] [RESOURCE MGR] [ERROR]: Second level directory entry points to a data structure, not the next level directory\r\n");
-				return API_RMGR_INVALID_TREE_STRUCTURE;
+				return KRNL_API_RMGR_INVALID_TREE_STRUCTURE;
 			}
 		
 			ImageResourceDirectory* secondLevelHdr = reinterpret_cast<ImageResourceDirectory*>((entryInLvl1->offsetToData & 0x7FFFFFFFUL) + System->ResourceSectionVirtAddr);
@@ -145,7 +145,7 @@ API_STATUS ResourceMgr::Initialize(SystemTable* System)
 				if((entryInLvl2->offsetToData & (1 << 31UL)) != 0)
 				{
 					printf("[SYSKRNL64] [RESOURCE MGR] [ERROR]: Third level directory entry points to the next level directory, not a data structure\r\n");
-					return API_RMGR_INVALID_TREE_STRUCTURE;
+					return KRNL_API_RMGR_INVALID_TREE_STRUCTURE;
 				}
 	
 				// Parse the resource data
@@ -169,10 +169,10 @@ API_STATUS ResourceMgr::Initialize(SystemTable* System)
 		rootEntryOffset += sizeof(ImageResourceDirectoryEntry);
 	}
 
-	return API_SUCCESS;
+	return KRNL_SUCCESS;
 }
 
-std::expected<RMgr_ResourceDesc*, API_STATUS> ResourceMgr::GetResourceByID(uint32_t resourceID, RMgr_ResTypes type)
+std::expected<RMgr_ResourceDesc*, KRNL_STATUS> ResourceMgr::GetResourceByID(uint32_t resourceID, RMgr_ResTypes type)
 {
 	for(size_t i = 0; i < resources.size(); i++)
 	{
@@ -182,10 +182,10 @@ std::expected<RMgr_ResourceDesc*, API_STATUS> ResourceMgr::GetResourceByID(uint3
 		if(desc->resourceID == resourceID) return desc;
 	}
 
-	return std::unexpected<API_STATUS>(API_NOT_FOUND);
+	return std::unexpected<KRNL_STATUS>(KRNL_NOT_FOUND);
 }
 
-std::expected<RMgr_ResourceDesc*, API_STATUS> ResourceMgr::GetResourceByName(const std::string& resourceName, RMgr_ResTypes type)
+std::expected<RMgr_ResourceDesc*, KRNL_STATUS> ResourceMgr::GetResourceByName(const std::string& resourceName, RMgr_ResTypes type)
 {
 	for(size_t i = 0; i < resources.size(); i++)
 	{
@@ -195,7 +195,7 @@ std::expected<RMgr_ResourceDesc*, API_STATUS> ResourceMgr::GetResourceByName(con
 		if(desc->resourceName == resourceName) return desc;
 	}
 
-	return std::unexpected<API_STATUS>(API_NOT_FOUND);
+	return std::unexpected<KRNL_STATUS>(KRNL_NOT_FOUND);
 }
 
 RMgr_ResTypes ResourceMgr::GetTypeFromName(const std::string& name)

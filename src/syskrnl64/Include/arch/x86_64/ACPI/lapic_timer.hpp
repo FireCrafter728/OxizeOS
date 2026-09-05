@@ -3,7 +3,7 @@
 #pragma once
 
 #include <main/defs.hpp>
-#include <arch/x86_64/std/stdint.hpp>
+
 #include <const_array.hpp>
 
 #include <arch/x86_64/MP/smp_defs.hpp>

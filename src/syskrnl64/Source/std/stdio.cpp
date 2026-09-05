@@ -4,19 +4,13 @@
 #include <stddef.h>
 #include <stdint.h>
 
-// ----------- //
-// DEFINITIONS //
-// ----------- //
-
-#if defined(__GNUC__) || defined(__clang__)
-#define PRINTF_ATTR(fmt_idx, arg_idx) __attribute__((format(printf, fmt_idx, arg_idx)))
-#else
-#define PRINTF_ATTR(fmt_idx, arg_idx)
-#endif
+#include <mutex>
 
 // ------------------ //
 // PRINTING FUNCTIONS //
 // ------------------ //
+
+std::mutex printfMutex;
 
 extern void KernelPutc(char c);
 
@@ -85,6 +79,7 @@ void PRINTF_ATTR(1, 2) printf(const char* fmt, ...)
 
 void vprintf(const char* fmt, va_list args)
 {
+	std::lock_guard<std::mutex> lock(printfMutex);
 	int state = PRINTF_STATE_NORMAL;
 	int length = PRINTF_LENGTH_DEFAULT;
 	int radix = 10;

@@ -1,0 +1,71 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+
+#pragma once
+
+#include <atomic>
+
+// Include the correct architecture mutex implementation header
+
+#if defined(__x86_64__) || defined(__amd64__)
+
+#include <arch/x86_64/std/mutex>
+
+#endif
+
+namespace std
+{
+	// architecture-independent mutex class
+	class mutex : public arch_mutex
+	{
+	public:
+		mutex() noexcept = default;
+	
+		mutex(const mutex&) = delete;
+		mutex& operator=(const mutex&) = delete;
+
+		mutex(mutex&&) = delete;
+		mutex& operator=(mutex&&) = delete;
+
+		void lock() noexcept
+		{
+			arch_lock(locked);
+		}
+
+		bool try_lock() noexcept
+		{
+			return arch_try_lock(locked);
+		}
+
+		void unlock() noexcept
+		{
+			arch_unlock(locked);
+		}
+	private:
+		atomic<bool> locked = false;
+	};
+
+	// lock_guard class for safely using std::mutex
+
+	template <typename _M>
+	class lock_guard
+	{
+	public:
+		explicit lock_guard(_M& mutex) noexcept : mutexRef(mutex)
+		{
+			mutexRef.lock();
+		}
+
+		lock_guard(const lock_guard&) = delete;
+		lock_guard& operator=(const lock_guard&) = delete;
+
+		lock_guard(lock_guard&&) = delete;
+		lock_guard& operator=(lock_guard&&) = delete;
+
+		~lock_guard() noexcept
+		{
+			mutexRef.unlock();
+		}
+	private:
+		_M& mutexRef;
+	};
+}

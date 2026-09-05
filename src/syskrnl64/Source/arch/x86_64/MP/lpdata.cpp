@@ -3,6 +3,8 @@
 #include <arch/x86_64/MP/lpdata.hpp>
 
 #include <arch/x86_64/Utility/io.hpp>
+#include <arch/x86_64/Utility/alloc.hpp>
+
 #include <stdio.hpp>
 #include <main/utils.hpp>
 
@@ -18,24 +20,13 @@ bool LPData::InitializeBSP(LPSpecificData* dataOut)
 
 	dataOut->self = dataOut;
 	
-	// Allocate an interrupt handler stack for the BSP and an extra guard page at the bottom to prevent corruption if the stack overflows
+	// Allocate an interrupt handler stack for the BSP
 
-	auto ihStackAllocRes = virtAlloc->AllocateBlocks(BLOCK_COUNT(LP_INTHANDLER_STACK_SIZE) + 1, VA_NODE_FLAG_PHYSICALLY_NOT_BACKED | VA_NODE_FLAG_USED);
-	if(!ihStackAllocRes)
-	{
-		printf("[SYSKRNL64] [LPDATA] [ERROR]: Failed to reserve virtual memory for the BSP Interrupt handler stack, error: %d\r\n", ihStackAllocRes.error());
-		HaltSystem();
-	}
+	uintptr_t ihStackPtr = AllocateStack(LP_INTHANDLER_STACK_SIZE, "BSP Interrupt handler stack", "LPDATA");
+	if(!ihStackPtr) return false;
 
-	uint32_t ihStackPhysAllocRes = physAlloc->AllocSparseBlocksToContiguousVirtualRange(BLOCK_COUNT(LP_INTHANDLER_STACK_SIZE), reinterpret_cast<uintptr_t>(ihStackAllocRes.value()) + BLOCK_SIZE, PTE_PRESENT | PTE_RW);
-	if(ihStackPhysAllocRes != MMD_SUCCESS)
-	{
-		printf("[SYSKRNL64] [LPDATA] [ERROR]: Failed to allocate physical memory for the BSP Interrupt handler stack, error: %d\r\n", ihStackPhysAllocRes);
-		HaltSystem();
-	}
+	dataOut->ihStackTopPtr = ihStackPtr;
 
-	dataOut->ihStackTopPtr = reinterpret_cast<uintptr_t>(ihStackAllocRes.value()) + LP_INTHANDLER_STACK_SIZE + BLOCK_SIZE;
-	dataOut->ihStackBottomPtr = reinterpret_cast<uintptr_t>(ihStackAllocRes.value()) + BLOCK_SIZE;
 	dataOut->intDepth = 0;
 	
 	// Temporarily assign the dataOut to gs for interrupts to function normally
@@ -90,11 +81,32 @@ bool LPData::Initialize(APIC* apic, LPSpecificData* bspData)
 	return true;
 }
 
-ASMCALL LPSpecificData* ASM_GetLPDataForCurrentLP();
+bool LPData::InitializeLP(LPID lpId)
+{
+	if(lpId >= lpData.size()) 
+	{
+		printf("[SYSKRNL64] [LPDATA] [ERROR]: Cannot initialize LP's specific data: LP ID %lu is invalid\r\n", lpId);
+		return false;
+	}
+
+	LPSpecificData* data = &lpData[lpId];
+
+	// Allocate an interrupt handler stack for the LP
+
+	uintptr_t ihStackPtr = AllocateStack(LP_INTHANDLER_STACK_SIZE, "LP Interrupt handler stack", "LPDATA");
+	if(!ihStackPtr) return false;
+
+	data->ihStackTopPtr = ihStackPtr;
+	data->intDepth = 0;
+
+	StoreCurrentLPData(data);
+
+	return true;
+}
 
 LPSpecificData* LPData::GetLPDataForCurrentLP()
 {
-	return ASM_GetLPDataForCurrentLP();
+	return reinterpret_cast<LPSpecificData*>(GetCurrentLPSpecificData());
 }
 
 void LPData::StoreCurrentLPData(LPSpecificData* data)

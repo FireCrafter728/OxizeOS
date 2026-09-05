@@ -3,10 +3,10 @@
 #pragma once
 
 #include <main/defs.hpp>
-#include <arch/x86_64/std/stdint.hpp>
 
-#include <arch/x86_64/MMD/memdefs.hpp>
 #include <arch/x86_64/MMD/virt.hpp>
+
+#include <mutex>
 
 namespace krnl
 {
@@ -41,15 +41,17 @@ namespace krnl
 	class HeapAlloc
 	{
 	public:
-		HeapAlloc() = default;
-		MemoryAllocErrors Initialize(Heap_HeapAllocDesc* desc);
-		std::expected<void*, MemoryAllocErrors> AllocateBytes(size_t size);
-		MemoryAllocErrors FreeBytes(void* ptr);
+		KRNL_STATUS Initialize(Heap_HeapAllocDesc* desc);
+		std::expected<void*, KRNL_STATUS> AllocateBytes(size_t size);
+		KRNL_STATUS FreeBytes(void* ptr);
 	private:
-		MemoryAllocErrors ExpandHeap();
+		std::expected<void*, KRNL_STATUS> AllocateBytesImpl(size_t size);
+		KRNL_STATUS ExpandHeap();
 		uintptr_t heapVirtBase;
 		size_t heapBlocks;
 		Heap_HeapAllocDesc desc;
 		Heap_AllocationHeader* lastHeader;
+
+		std::mutex heapMutex;
 	};
 }

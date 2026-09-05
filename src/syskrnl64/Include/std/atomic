@@ -1,0 +1,134 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+
+#pragma once
+
+namespace std
+{
+	enum memory_order
+	{
+		memory_order_relaxed = __ATOMIC_RELAXED,
+		memory_order_consume = __ATOMIC_CONSUME,
+		memory_order_acquire = __ATOMIC_ACQUIRE,
+		memory_order_release = __ATOMIC_RELEASE,
+		memory_order_acq_rel = __ATOMIC_ACQ_REL,
+		memory_order_seq_cst = __ATOMIC_SEQ_CST
+	};
+
+	template <typename T>
+	class atomic
+	{
+	public:
+		atomic() noexcept = default;
+
+		constexpr atomic(T desired) noexcept : value(desired) {}
+
+		atomic(const atomic&) = delete;
+		atomic& operator=(const atomic&) = delete;
+
+		atomic(atomic&&) = delete;
+		atomic& operator=(atomic&&) = delete;
+
+		T load(memory_order order = memory_order_seq_cst) const noexcept
+		{
+			return __atomic_load_n(&value, order);
+		}
+
+		operator T() const noexcept
+		{
+			return load();
+		}
+
+		void store(T desired, memory_order order = memory_order_seq_cst) noexcept
+		{
+			__atomic_store_n(&value, desired, order);
+		}
+
+		T exchange(T desired, memory_order order = memory_order_seq_cst) noexcept
+		{
+			return __atomic_exchange_n(&value, desired, order);
+		}
+
+		bool compare_exchange_weak(T& expected, T desired, memory_order success = memory_order_seq_cst, memory_order failure = memory_order_seq_cst) noexcept
+		{
+			return __atomic_compare_exchange_n(&value, &expected, desired, true, success, failure);
+		}
+
+		bool compare_exchange_strong(T& expected, T desired, memory_order success = memory_order_seq_cst, memory_order failure = memory_order_seq_cst) noexcept
+		{
+			return __atomic_compare_exchange_n(&value, &expected, desired, false, success, failure);
+		}
+
+		T fetch_add(T operand, memory_order order = memory_order_seq_cst) noexcept
+		{
+			return __atomic_fetch_add(&value, operand, order);
+		}
+
+		T fetch_sub(T operand, memory_order order = memory_order_seq_cst) noexcept
+		{
+			return __atomic_fetch_sub(&value, operand, order);
+		}
+
+		T fetch_and(T operand, memory_order order = memory_order_seq_cst) noexcept
+		{
+			return __atomic_fetch_and(&value, operand, order);
+		}
+
+		T fetch_or(T operand, memory_order order = memory_order_seq_cst) noexcept
+		{
+			return __atomic_fetch_or(&value, operand, order);
+		}
+
+		T fetch_xor(T operand, memory_order order = memory_order_seq_cst) noexcept
+		{
+			return __atomic_fetch_xor(&value, operand, order);
+		}
+		
+		T operator++() noexcept
+		{
+			return fetch_add(1) + 1;
+		}
+
+		T operator++(int) noexcept
+		{
+			return fetch_add(1);
+		}
+
+		T operator--() noexcept
+		{
+			return fetch_sub(1) - 1;
+		}
+
+		T operator--(int) noexcept
+		{
+			return fetch_sub(1);
+		}
+
+		T operator+=(T operand) noexcept
+		{
+			return fetch_add(operand) + operand;
+		}
+
+		T operator-=(T operand) noexcept
+		{
+			return fetch_sub(operand) - operand;
+		}
+
+		T operator&=(T operand) noexcept
+		{
+			return fetch_and(operand) & operand;
+		}
+
+		T operator|=(T operand) noexcept
+		{
+			return fetch_or(operand) | operand;
+		}
+
+		T operator^=(T operand) noexcept
+		{
+			return fetch_xor(operand) ^ operand;
+		}
+
+	private:
+		T value;
+	};
+}

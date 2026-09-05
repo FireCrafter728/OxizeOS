@@ -3,11 +3,10 @@
 #pragma once
 
 #include <main/defs.hpp>
-#include <arch/x86_64/std/stdint.hpp>
+
 #include <const_array.hpp>
 
 #include <arch/x86_64/MP/smp_defs.hpp>
-
 #include <arch/x86_64/ACPI/apic.hpp>
 
 namespace krnl
@@ -17,8 +16,10 @@ namespace krnl
 	public:
 		bool InitializeBSP(LPSpecificData* dataOut);
 		bool Initialize(APIC* apic, LPSpecificData* bspData);
+		bool InitializeLP(LPID lpId);
 		inline LPSpecificData* GetLPDataByID(LPID lpid) { return &lpData[lpid]; }
-		LPSpecificData* GetLPDataForCurrentLP();
+		inline const stdEx::const_array<LPSpecificData>& GetLPDataArray() const { return lpData; }
+		static LPSpecificData* GetLPDataForCurrentLP();
 		inline size_t GetLPCount() { return lpData.size(); }
 	private:
 		stdEx::const_array<LPSpecificData> lpData;
